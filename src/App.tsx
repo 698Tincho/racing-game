@@ -28,7 +28,7 @@ export default function App() {
     <KeyboardControls map={keyMap}>
       <Canvas
         shadows
-        camera={{ position: [60, 48, 60], fov: 55, far: 1200 }}
+        camera={{ position: [60, 48, 60], fov: 55, near: 0.3, far: 1500 }}
         dpr={dpr}
         // Neutral keeps the toy colours bright and saturated (ACES greys them out a bit).
         gl={{ toneMapping: THREE.NeutralToneMapping }}

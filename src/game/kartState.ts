@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { Surface } from './track/layout'
 
 // Shared, mutable kart telemetry. Written every frame by <Kart />, read by the
 // camera, lights, wheels and HUD. It's a plain object on purpose: putting
@@ -13,6 +14,8 @@ export const kartState = {
   slip: 0, // sideways sliding speed in m/s (drifting through corners)
   launch: 0, // 0..1, hard acceleration from low speed (wheelspin)
   impact: 0, // 0..1, spikes when hitting a wall, then fades out
+  surface: 'road' as Surface, // what the kart is driving on
+  rumble: 0, // 0..1, shaking from kerbs / rough ground
 }
 
 // Handy while developing: inspect `kartState` from the browser console.

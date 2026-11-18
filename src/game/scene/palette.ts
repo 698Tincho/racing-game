@@ -16,4 +16,4 @@ export const PALETTE = {
 } as const
 
 // Fog fades into the horizon colour so far things melt into the sky.
-export const FOG = { color: PALETTE.skyHorizon, near: 90, far: 280 }
+export const FOG = { color: PALETTE.skyHorizon, near: 120, far: 420 }

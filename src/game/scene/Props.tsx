@@ -1,78 +1,37 @@
 import { useMemo } from 'react'
 import { Clone, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
-import { modelUrl, ROAD_HALF_WIDTH } from '../track/pieces'
-import { TRACK_SCALE, offsetLeft, pointOnPiece, track } from '../track/layout'
+import { modelUrl } from '../assets'
+import { ROAD_HALF_WIDTH, RUNOFF_WIDTH, offsetLeft, track } from '../track/layout'
 import { FLOOR_Y } from './boardSize'
 
-const S = TRACK_SCALE
-const HALF = ROAD_HALF_WIDTH * S
+const HALF = ROAD_HALF_WIDTH
+const CRATE_SCALE = 5
 
 /**
- * Trackside dressing, all visual only (it sits behind the walls):
- * tyre stacks on the outside of corners, cones on the inside apex,
- * a checkered start/finish line and the grid box.
+ * Trackside dressing, visual only: crate piles behind the tyre walls by the
+ * start, the checkered start/finish line and the grid box.
  */
 export function Props() {
-  const tyre = useGLTF(modelUrl('wheel-large')).scene
-  const cone = useGLTF(modelUrl('item-cone')).scene
   const box = useGLTF(modelUrl('item-box')).scene
-
-  const { tyres, cones } = useMemo(() => {
-    const tyres: { x: number; z: number; r: number }[] = []
-    const cones: { x: number; z: number; r: number }[] = []
-    for (const placed of track.pieces) {
-      if (placed.id === 'S') continue
-      const big = placed.id === 'RL' || placed.id === 'LL'
-      const stacks = big ? [0.15, 0.32, 0.5, 0.68, 0.85] : [0.25, 0.5, 0.75]
-      for (const t of stacks) {
-        const p = pointOnPiece(placed, t)
-        // Outside of the turn is the opposite side from `inside`.
-        tyres.push({ ...offsetLeft(p, -p.inside * (HALF + 2.4)), r: p.yaw })
-      }
-      const apex = pointOnPiece(placed, 0.5)
-      for (const k of [-1, 0, 1]) {
-        const q = pointOnPiece(placed, 0.5 + k * 0.12)
-        cones.push({ ...offsetLeft(q, q.inside * (HALF + 1.6)), r: apex.yaw + k })
-      }
-    }
-    return { tyres, cones }
-  }, [])
 
   // A couple of crate piles near the start, just for colour.
   const piles = useMemo(() => {
     const start = track.finish
+    const behindWall = HALF + RUNOFF_WIDTH + 5
     return [
-      { ...offsetLeft({ ...start, z: start.z + 10 }, HALF + 4), r: 0.3 },
-      { ...offsetLeft({ ...start, z: start.z - 6 }, -(HALF + 5)), r: -0.5 },
+      { ...offsetLeft({ ...start, z: start.z + 14 }, behindWall), r: 0.3 },
+      { ...offsetLeft({ ...start, z: start.z - 10 }, behindWall + 2), r: -0.5 },
     ]
   }, [])
 
+  const S = CRATE_SCALE
   return (
     <>
-      {tyres.map((t, i) => (
-        <group key={`t${i}`} position={[t.x, FLOOR_Y, t.z]} rotation={[0, t.r, 0]}>
-          {[0, 1, 2].map((level) => (
-            <Clone
-              key={level}
-              object={tyre}
-              // The tyre model stands up on its side; lay it flat and stack it.
-              rotation={[0, 0, Math.PI / 2]}
-              position={[0, (0.094 + level * 0.19) * S, 0]}
-              scale={S}
-              castShadow
-              receiveShadow
-            />
-          ))}
-        </group>
-      ))}
-      {cones.map((c, i) => (
-        <Clone key={`c${i}`} object={cone} position={[c.x, FLOOR_Y, c.z]} rotation={[0, c.r, 0]} scale={S * 1.2} castShadow />
-      ))}
       {piles.map((p, i) => (
         <group key={`p${i}`} position={[p.x, FLOOR_Y, p.z]} rotation={[0, p.r, 0]}>
-          <Clone object={box} position={[-1, 0, 0]} scale={S} castShadow />
-          <Clone object={box} position={[1, 0, 0.3]} rotation={[0, 0.4, 0]} scale={S} castShadow />
+          <Clone object={box} position={[-1.2, 0, 0]} scale={S} castShadow />
+          <Clone object={box} position={[1.2, 0, 0.3]} rotation={[0, 0.4, 0]} scale={S} castShadow />
           <Clone object={box} position={[0, 0.445 * S, 0.1]} rotation={[0, -0.2, 0]} scale={S} castShadow />
         </group>
       ))}
@@ -111,7 +70,7 @@ function StartLine() {
   tex.magFilter = THREE.NearestFilter
   const { x, z, yaw } = track.finish
   return (
-    <mesh position={[x, 0.02, z]} rotation={[-Math.PI / 2, 0, yaw]} receiveShadow>
+    <mesh position={[x, 0.04, z]} rotation={[-Math.PI / 2, 0, yaw]} receiveShadow>
       <planeGeometry args={[HALF * 2, (HALF * 2 * rows) / cols]} />
       <meshStandardMaterial map={tex} {...decal} />
     </mesh>
@@ -136,13 +95,11 @@ function GridBox() {
   const { x, z, yaw } = track.start
   // Box drawn just behind the kart's nose; text faces the driver.
   return (
-    <mesh position={[x, 0.02, z + 0.4]} rotation={[-Math.PI / 2, 0, yaw + Math.PI]}>
+    <mesh position={[x, 0.04, z + 0.4]} rotation={[-Math.PI / 2, 0, yaw + Math.PI]}>
       <planeGeometry args={[2.4, 3]} />
       <meshStandardMaterial map={tex} {...decal} opacity={0.9} />
     </mesh>
   )
 }
 
-useGLTF.preload(modelUrl('wheel-large'))
-useGLTF.preload(modelUrl('item-cone'))
 useGLTF.preload(modelUrl('item-box'))

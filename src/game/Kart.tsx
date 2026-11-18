@@ -10,8 +10,7 @@ import {
 } from '@react-three/rapier'
 import * as THREE from 'three'
 import { CarModel } from './CarModel'
-import { nearestOnTrack, track, TRACK_SCALE } from './track/layout'
-import { ROAD_HALF_WIDTH } from './track/pieces'
+import { BARRIER_THICKNESS, GRAVEL_WIDTH, KERB_WIDTH, ROAD_HALF_WIDTH, nearestOnTrack, surfaceFromNearest, track } from './track/layout'
 import { kartState } from './kartState'
 import { useGame } from './race/store'
 import { TUNING as T } from './tuning'
@@ -19,8 +18,8 @@ import type { Controls } from './controls'
 import { frameStep } from './time'
 
 const SPAWN = { x: track.start.x, y: 1.2, z: track.start.z }
-// The walls stop you well before this, so being further out means something went wrong.
-const OFF_TRACK_DISTANCE = ROAD_HALF_WIDTH * TRACK_SCALE + 1
+// The tyre walls stop you well before this, so being further out means something went wrong.
+const OFF_TRACK_DISTANCE = ROAD_HALF_WIDTH + KERB_WIDTH + GRAVEL_WIDTH + BARRIER_THICKNESS + 4
 
 // Exponential smoothing that behaves the same at any frame rate.
 const damp = (from: number, to: number, rate: number, dt: number) =>
@@ -76,7 +75,7 @@ export function Kart() {
       teleport(rb, track.start.x, track.start.z, track.start.yaw)
     }
 
-    // R, falling off the world, or somehow ending up outside the rails:
+    // R, falling off the world, or somehow ending up behind the tyre walls:
     // back on the road at the closest point, facing the way the track goes.
     const here = rb.translation()
     const nearest = nearestOnTrack(here.x, here.z)
@@ -90,6 +89,7 @@ export function Kart() {
     const canDrive = game.phase === 'racing'
     const held = game.phase === 'countdown' || game.phase === 'menu'
     const throttle = canDrive ? Number(keys.forward) - Number(keys.back) : 0
+    const surface = surfaceFromNearest(nearest)
     const steerInput = canDrive ? Number(keys.left) - Number(keys.right) : 0
     steer.current = damp(steer.current, steerInput, T.steerResponse, dt)
 
@@ -118,21 +118,26 @@ export function Kart() {
       latSpeed = 0
       rb.setLinvel({ x: 0, y: v.y, z: 0 }, true)
     } else if (grounded) {
+      // Grass and gravel lower your top speed and grip, and bleed off any
+      // extra speed you carried in: running wide costs time.
+      const ground = T.surfaces[surface]
+      const maxSpeed = T.maxSpeed * ground.maxSpeed
       if (throttle > 0) {
         if (fwdSpeed < 0) fwdSpeed = Math.min(0, fwdSpeed + T.brake * dt)
-        else if (fwdSpeed < T.maxSpeed) {
+        else if (fwdSpeed < maxSpeed) {
           // Strong pull at low speed, tapering off near top speed.
-          const curve = Math.max(0.1, 1 - (fwdSpeed / T.maxSpeed) ** 2)
-          fwdSpeed = Math.min(T.maxSpeed, fwdSpeed + T.accel * curve * dt)
+          const curve = Math.max(0.1, 1 - (fwdSpeed / maxSpeed) ** 2)
+          fwdSpeed = Math.min(maxSpeed, fwdSpeed + T.accel * ground.accel * curve * dt)
         }
       } else if (throttle < 0) {
         if (fwdSpeed > 0.5) fwdSpeed = Math.max(0, fwdSpeed - T.brake * dt)
-        else fwdSpeed = Math.max(-T.maxReverse, fwdSpeed - T.reverseAccel * dt)
+        else fwdSpeed = Math.max(-T.maxReverse * ground.maxSpeed, fwdSpeed - T.reverseAccel * ground.accel * dt)
       } else {
         fwdSpeed = moveToward(fwdSpeed, 0, T.coast * dt)
       }
+      if (fwdSpeed > maxSpeed) fwdSpeed = moveToward(fwdSpeed, maxSpeed, ground.drag * dt)
 
-      latSpeed *= Math.exp(-T.grip * dt)
+      latSpeed *= Math.exp(-T.grip * ground.grip * dt)
 
       // You can only turn while moving; reversing flips the steering, like a car.
       const speedFactor = clamp(fwdSpeed / T.turnFullSpeedAt, -1, 1)
@@ -164,10 +169,16 @@ export function Kart() {
     pitch.current = damp(pitch.current, grounded ? clamp(-accel / 300, -0.06, 0.06) : 0, 8, dt)
     roll.current = damp(roll.current, grounded ? steer.current * speedNorm * 0.12 : 0, 8, dt)
 
+    // Kerbs and rough ground make the kart buzz.
+    const roughness = surface === 'kerb' ? 1 : surface === 'road' ? 0 : 0.45
+    kartState.rumble = grounded ? roughness * clamp(Math.abs(fwdSpeed) / 12, 0, 1) : 0
+    kartState.surface = surface
+
     if (visual.current && tilt.current) {
       visual.current.position.set(p.x, p.y - T.radius, p.z)
       visual.current.rotation.y = yaw.current
-      tilt.current.rotation.set(pitch.current, 0, roll.current)
+      tilt.current.rotation.set(pitch.current + (Math.random() - 0.5) * 0.025 * kartState.rumble, 0, roll.current)
+      tilt.current.position.y = Math.random() * 0.04 * kartState.rumble
     }
 
     kartState.position.set(p.x, p.y - T.radius, p.z)

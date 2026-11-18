@@ -2,13 +2,13 @@ import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { kartState } from '../kartState'
-import { nearestOnTrack, track, type Pose } from '../track/layout'
+import { GRAVEL_WIDTH, KERB_WIDTH, ROAD_HALF_WIDTH, nearestOnTrack, track, type Pose } from '../track/layout'
 import { FINISH_BANNER_SECONDS, race, useGame } from './store'
 import { frameStep } from '../time'
 
 // How far sideways from a checkpoint's center you can be and still count as
-// crossing it. Wider than the road so a kart touching the wall still counts.
-const LINE_HALF_WIDTH = 6
+// crossing it. Reaches out to the tyre walls, so running wide still counts.
+const LINE_HALF_WIDTH = ROAD_HALF_WIDTH + KERB_WIDTH + GRAVEL_WIDTH + 3
 
 /** Did the kart go from behind the line to in front of it this frame? */
 function crossed(line: Pose, from: THREE.Vector3, to: THREE.Vector3) {

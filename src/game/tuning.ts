@@ -22,6 +22,15 @@ export const TUNING = {
   // Grip: how fast sideways sliding is killed. Lower = more drifty.
   grip: 9,
 
+  // What each surface does to you, as multipliers of the values above.
+  // drag = how hard (m/s²) you're slowed down when above that surface's top speed.
+  surfaces: {
+    road: { maxSpeed: 1, accel: 1, grip: 1, drag: 0 },
+    kerb: { maxSpeed: 0.96, accel: 0.95, grip: 0.9, drag: 4 },
+    grass: { maxSpeed: 0.5, accel: 0.55, grip: 0.45, drag: 12 },
+    gravel: { maxSpeed: 0.3, accel: 0.4, grip: 0.6, drag: 22 },
+  },
+
   // Chase camera
   camDistance: 6.5,
   camHeight: 2.8,

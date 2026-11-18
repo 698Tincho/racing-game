@@ -80,10 +80,11 @@ function Clouds() {
     const rand = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646
     return Array.from({ length: 16 }, (_, i) => {
       const angle = (i / 16) * Math.PI * 2 + rand() * 0.3
-      const radius = 170 + rand() * 120
+      // Well outside the menu camera's orbit so it never flies through one.
+      const radius = 300 + rand() * 150
       return {
-        position: [Math.cos(angle) * radius, 45 + rand() * 40, Math.sin(angle) * radius] as const,
-        scale: 6 + rand() * 6,
+        position: [Math.cos(angle) * radius, 60 + rand() * 50, Math.sin(angle) * radius] as const,
+        scale: 9 + rand() * 8,
         puffs: Array.from({ length: 3 + Math.floor(rand() * 3) }, (_, j) => ({
           x: (j - 1.5) * 1.3 + rand() * 0.6,
           y: rand() * 0.5,

@@ -7,9 +7,9 @@ import { PALETTE } from './scene/palette'
 import { SUN_DIRECTION } from './scene/sun'
 import { board } from './scene/boardSize'
 
-const SUN_DISTANCE = 60
+const SUN_DISTANCE = 140
 const RACE_SHADOW_SIZE = 32 // sharp shadows around the kart while racing
-const OVERVIEW_SHADOW_SIZE = 95 // softer, but covers the whole board on the menu
+const OVERVIEW_SHADOW_SIZE = Math.max(board.width, board.depth) * 0.55 // covers the whole board on the menu
 
 /**
  * While racing, the sun follows the kart so the shadow map only covers the
@@ -58,7 +58,7 @@ export function Lights() {
         shadow-camera-top={RACE_SHADOW_SIZE}
         shadow-camera-bottom={-RACE_SHADOW_SIZE}
         shadow-camera-near={1}
-        shadow-camera-far={140}
+        shadow-camera-far={320}
         shadow-bias={-0.0004}
         shadow-normalBias={0.04}
       />

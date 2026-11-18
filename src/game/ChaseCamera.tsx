@@ -12,7 +12,7 @@ const lookAt = new THREE.Vector3()
 
 const ORBIT_SPEED = 0.06 // rad/s
 const ORBIT_RADIUS = Math.max(board.width, board.depth) * 0.62
-const ORBIT_HEIGHT = 48
+const ORBIT_HEIGHT = Math.max(board.width, board.depth) * 0.3
 
 /**
  * Racing: follows behind the kart with a little lag, widens the FOV with
@@ -56,7 +56,7 @@ export function ChaseCamera() {
       }
 
       // Wall hit: a quick, fading shake.
-      const shake = kartState.impact * kartState.impact * 0.45
+      const shake = kartState.impact * kartState.impact * 0.45 + kartState.rumble * 0.04
       if (shake > 0.001) {
         cam.position.x += (Math.random() - 0.5) * shake
         cam.position.y += (Math.random() - 0.5) * shake

@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { kartState } from '../kartState'
-import { modelUrl } from '../track/pieces'
+import { modelUrl } from '../assets'
 import { PALETTE } from '../scene/palette'
 import { frameStep } from '../time'
 
@@ -48,11 +48,12 @@ export function Dust() {
 
   useFrame((_, delta) => {
     const dt = frameStep(delta)
-    const { position, yaw, speed, slip, launch, impact, grounded } = kartState
+    const { position, yaw, speed, slip, launch, impact, grounded, surface } = kartState
+    const offRoad = surface === 'grass' || surface === 'gravel' ? THREE.MathUtils.clamp(Math.abs(speed) / 8, 0, 1) : 0
 
     // How many puffs per second right now.
     const rate = grounded
-      ? THREE.MathUtils.clamp((slip - 2) / 4, 0, 1) * 28 + launch * 30 + impact * 60
+      ? THREE.MathUtils.clamp((slip - 2) / 4, 0, 1) * 28 + launch * 30 + impact * 60 + offRoad * (surface === 'gravel' ? 30 : 12)
       : 0
     carry.current += rate * dt
     const sin = Math.sin(yaw)

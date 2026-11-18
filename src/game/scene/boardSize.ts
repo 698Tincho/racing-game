@@ -1,13 +1,11 @@
 import { track } from '../track/layout'
-import { ROAD_SURFACE_Y } from '../track/pieces'
-import { TRACK_SCALE } from '../track/layout'
 
-// The diorama board: a slab of grass and soil the whole track sits on.
-export const BOARD_MARGIN = 26 // grass around the track's bounding box, meters
-export const BOARD_THICKNESS = 7
+// The diorama board: a slab of grass and soil the whole circuit sits on.
+export const BOARD_MARGIN = 30 // grass around the tyre walls, meters
+export const BOARD_THICKNESS = 9
 
-// Top of the board = bottom of the track tiles.
-export const FLOOR_Y = -ROAD_SURFACE_Y * TRACK_SCALE
+// Top of the board. The road is drawn a couple of centimeters above it.
+export const FLOOR_Y = 0
 
 const { minX, maxX, minZ, maxZ } = track.bounds
 export const board = {

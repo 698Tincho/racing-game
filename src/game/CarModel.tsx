@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { kartState } from './kartState'
-import { modelUrl } from './track/pieces'
+import { modelUrl } from './assets'
 import { frameStep } from './time'
 
 /**

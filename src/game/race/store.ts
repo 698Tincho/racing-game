@@ -5,7 +5,8 @@ import { create } from 'zustand'
 export const ATTEMPTS = 3
 export const COUNTDOWN_SECONDS = 3
 export const FINISH_BANNER_SECONDS = 2.5
-const TRACK_ID = 'track-1'
+// Bump this when a track's layout changes, so old records don't carry over.
+const TRACK_ID = 'track-1-v2'
 
 export type Phase =
   | 'menu' // title screen
