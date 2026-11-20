@@ -9,8 +9,8 @@ import {
   type RapierRigidBody,
 } from '@react-three/rapier'
 import * as THREE from 'three'
-import { CarModel } from './CarModel'
-import { BARRIER_THICKNESS, GRAVEL_WIDTH, KERB_WIDTH, ROAD_HALF_WIDTH, nearestOnTrack, surfaceFromNearest, track } from './track/layout'
+import { KartModel } from './KartModel'
+import { WALL_OUTER, nearestOnTrack, surfaceFromNearest, track } from './track/layout'
 import { kartState } from './kartState'
 import { useGame } from './race/store'
 import { TUNING as T } from './tuning'
@@ -18,8 +18,8 @@ import type { Controls } from './controls'
 import { frameStep } from './time'
 
 const SPAWN = { x: track.start.x, y: 1.2, z: track.start.z }
-// The tyre walls stop you well before this, so being further out means something went wrong.
-const OFF_TRACK_DISTANCE = ROAD_HALF_WIDTH + KERB_WIDTH + GRAVEL_WIDTH + BARRIER_THICKNESS + 4
+// The walls stop you well before this, so being further out means something went wrong.
+const OFF_TRACK_DISTANCE = WALL_OUTER + 3
 
 // Exponential smoothing that behaves the same at any frame rate.
 const damp = (from: number, to: number, rate: number, dt: number) =>
@@ -85,7 +85,7 @@ export function Kart() {
     }
 
     // You can only drive while a lap is running. During the countdown the
-    // kart is held on the grid; after the finish it just coasts.
+    // kart is held on the grid; after a qualy lap it brakes to a stop.
     const canDrive = game.phase === 'racing'
     const held = game.phase === 'countdown' || game.phase === 'menu'
     const throttle = canDrive ? Number(keys.forward) - Number(keys.back) : 0
@@ -132,6 +132,9 @@ export function Kart() {
       } else if (throttle < 0) {
         if (fwdSpeed > 0.5) fwdSpeed = Math.max(0, fwdSpeed - T.brake * dt)
         else fwdSpeed = Math.max(-T.maxReverse * ground.maxSpeed, fwdSpeed - T.reverseAccel * ground.accel * dt)
+      } else if (game.phase === 'finished') {
+        // Qualy lap done: pull up gently while the time is on screen.
+        fwdSpeed = moveToward(fwdSpeed, 0, T.brake * 0.35 * dt)
       } else {
         fwdSpeed = moveToward(fwdSpeed, 0, T.coast * dt)
       }
@@ -164,7 +167,7 @@ export function Kart() {
 
     // Tyre scrub for the dust: sliding sideways, or turning hard at speed.
     kartState.slip = grounded ? Math.abs(latSpeed) + Math.abs(steer.current) * Math.abs(fwdSpeed) * 0.2 : 0
-    kartState.launch = grounded && throttle > 0 && fwdSpeed < 10 && fwdSpeed > -0.5 ? 1 - fwdSpeed / 10 : 0
+    kartState.launch = grounded && throttle > 0 && fwdSpeed < 10 && fwdSpeed > 0.5 ? 1 - fwdSpeed / 10 : 0
     const speedNorm = clamp(Math.abs(fwdSpeed) / T.maxSpeed, 0, 1)
     pitch.current = damp(pitch.current, grounded ? clamp(-accel / 300, -0.06, 0.06) : 0, 8, dt)
     roll.current = damp(roll.current, grounded ? steer.current * speedNorm * 0.12 : 0, 8, dt)
@@ -208,7 +211,7 @@ export function Kart() {
 
       <group ref={visual}>
         <group ref={tilt}>
-          <CarModel />
+          <KartModel />
         </group>
       </group>
     </>

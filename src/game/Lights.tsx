@@ -3,12 +3,11 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { kartState } from './kartState'
 import { useGame } from './race/store'
-import { PALETTE } from './scene/palette'
 import { SUN_DIRECTION } from './scene/sun'
 import { board } from './scene/boardSize'
 
-const SUN_DISTANCE = 140
-const RACE_SHADOW_SIZE = 32 // sharp shadows around the kart while racing
+const SUN_DISTANCE = 60
+const RACE_SHADOW_SIZE = 22 // sharp shadows around the kart while racing
 const OVERVIEW_SHADOW_SIZE = Math.max(board.width, board.depth) * 0.55 // covers the whole board on the menu
 
 /**
@@ -46,11 +45,11 @@ export function Lights() {
 
   return (
     <>
-      <hemisphereLight args={['#d6ecff', '#7da85a', 1.25]} />
+      <hemisphereLight args={['#eef2fa', '#5d626c', 1.15]} />
       <directionalLight
         ref={sun}
-        color={PALETTE.sun}
-        intensity={2.6}
+        color="#fff7ea"
+        intensity={2.2}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-RACE_SHADOW_SIZE}
@@ -58,7 +57,7 @@ export function Lights() {
         shadow-camera-top={RACE_SHADOW_SIZE}
         shadow-camera-bottom={-RACE_SHADOW_SIZE}
         shadow-camera-near={1}
-        shadow-camera-far={320}
+        shadow-camera-far={140}
         shadow-bias={-0.0004}
         shadow-normalBias={0.04}
       />

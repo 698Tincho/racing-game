@@ -5,34 +5,52 @@ import { PIECES, type PieceId } from './pieces'
 // ---------------------------------------------------------------------------
 
 /** 1 layout unit = TRACK_SCALE meters. A straight is 4 units, corners radius 2 / 4. */
-export const TRACK_SCALE = 6
-/** Half the asphalt width (12 m road). */
-export const ROAD_HALF_WIDTH = 6
-/** White track-limit line painted along both road edges. */
-export const EDGE_LINE_WIDTH = 0.35
-/** Red/white kerbs just outside the road, on corners. */
-export const KERB_WIDTH = 1.6
-/** Gravel trap on the outside of the large corners. */
-export const GRAVEL_WIDTH = 10
-/** Grass between the road edge and the tyre wall, where there's no gravel. */
-export const RUNOFF_WIDTH = 8
-/** Tyre walls: how thick (one tyre) and how tall the invisible collider is. */
-export const BARRIER_THICKNESS = 1.5
-export const BARRIER_HEIGHT = 2.5
+export const TRACK_SCALE = 3.5
+// A kart track: a narrow road lined by red/white block walls, like an indoor
+// karting hall. From the centre out:
+//   asphalt (kerbs painted on its edge in corners) | a strip of floor | block wall
+/** Half the asphalt width (7 m road, about 4 karts across). */
+export const ROAD_HALF_WIDTH = 3.5
+/** White line painted along the road edge on the straights. */
+export const EDGE_LINE_WIDTH = 0.2
+/** Red/white kerbs painted on the road edge, both sides of every corner. */
+export const KERB_WIDTH = 0.9
+/** Bare floor between the road edge and the block wall. */
+export const WALL_GAP = 0.4
+/** Block walls: thickness, height of the blocks you see, height of the invisible collider. */
+export const BARRIER_THICKNESS = 0.7
+export const BARRIER_VISUAL_HEIGHT = 0.6
+export const BARRIER_HEIGHT = 1.4
+/** Length of each red or white wall block. */
+export const BLOCK_LENGTH = 1.4
+/** Outer face of the walls: nothing you can drive on is further out than this. */
+export const WALL_OUTER = ROAD_HALF_WIDTH + WALL_GAP + BARRIER_THICKNESS
+
+/** Starting grid: two staggered columns behind the start line, like F1. */
+export const GRID_SLOTS = 8
+export const GRID_COLUMN_OFFSET = 1.5 // each column's distance from the centerline
+export const GRID_FIRST_GAP = 3 // pole position's distance behind the start line
+export const GRID_SPACING = 2.8 // distance between consecutive positions (P1 → P2 → P3...)
+
+/** The start/finish line, in meters along the main straight. */
+const FINISH_AT = 8 * TRACK_SCALE
 
 /**
- * Track 1. Read it like turtle directions, starting on the main straight:
- *   S = straight, RS/LS = small right/left corner, RL/LL = large right/left corner.
+ * Track 1, the hall. Read it like turtle directions, starting on the main straight:
+ *   S = straight, H = half straight,
+ *   RS/LS = small right/left corner, RL/LL = large right/left corner.
  * The loop must end exactly where it starts (the builder warns if it doesn't).
  */
 export const TRACK_1: PieceId[] = [
-  'S', 'S', 'S', 'S', // main straight (start/finish)
-  'RL', 'S', // turn 1, short run
-  'RS', 'LS', // chicane
-  'S', 'RL', // turn 4
-  'S', 'S', 'S', 'S', // back straight
-  'RL', 'S', 'S', 'S', // turn 5
-  'RL', 'S', // last corner onto the main straight
+  'S', 'S', 'S', // main straight (start/finish)
+  'RL', 'RS', // turn 1 and 2
+  'LS', 'LS', 'RS', // the S-bends
+  'S', 'RL', 'S', // long right-hander
+  'RS', 'RS', // hairpin
+  'H', 'LS', 'LS', // left-left
+  'S', 'RS', 'S', // into the back section
+  'LS', 'S', // kink
+  'RS', 'RS', 'H', // final hairpin onto the main straight
 ]
 
 export type Pose = { x: number; z: number; yaw: number }
@@ -49,8 +67,8 @@ export type CenterSample = { x: number; z: number; yaw: number; piece: number }
 export type PathSample = CenterSample & { s: number }
 
 export type Barrier = {
-  /** Tyre centers, about one tyre apart, in driving order. */
-  tyres: { x: number; z: number; yaw: number }[]
+  /** Wall block centres, BLOCK_LENGTH apart, in driving order. */
+  blocks: { x: number; z: number; yaw: number }[]
   /** Collider boxes along the wall. */
   segments: { x: number; z: number; yaw: number; length: number }[]
 }
@@ -65,11 +83,16 @@ export type BuiltTrack = {
   /** How far the tyre wall sits from the centerline, per path sample and side. */
   barrierOffset: { left: number[]; right: number[] }
   barriers: Barrier[]
+  /** Where the player starts: pole position (grid[0]). */
   start: Pose
+  /** Grid slots P1..P8, staggered left/right behind the start line. */
+  grid: (Pose & { position: number })[]
   /** Start/finish line (under the gate). */
   finish: Pose
   /** Lines you must cross in order before the finish counts: one per piece entry. */
   checkpoints: Pose[]
+  /** Checkpoint indices that end sector 1 and sector 2 (sector 3 ends at the line). */
+  sectorEnds: [number, number] | number[]
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number }
 }
 
@@ -112,9 +135,9 @@ export function pointOnPiece(placed: PlacedPiece, t: number, scale = TRACK_SCALE
   }
 }
 
-/** Is this side (+1 left / -1 right) of this piece the outside of a large corner? */
-const isGravelSide = (id: PieceId, side: number) =>
-  PIECES[id].corner === 'large' && side === -Math.sign(PIECES[id].exit.turn)
+/** Does this side of this piece get a kerb? Both sides of every corner. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const hasKerb = (id: PieceId, _side: number) => PIECES[id].corner !== 'none'
 
 /** Walk a closed polyline and drop points every `spacing` meters along it. */
 function resampleLoop(points: { x: number; z: number }[], spacing: number) {
@@ -168,7 +191,7 @@ export function buildTrack(sequence: PieceId[], scale = TRACK_SCALE): BuiltTrack
 
   const partial = { pieces, centerline } as BuiltTrack
 
-  // Tyre walls. Each side wants to sit a fixed distance out, but it must not
+  // Block walls. Each side wants to sit a fixed distance out, but it must not
   // end up closer to another part of the circuit than to its own road (inside
   // of tight corners, or where two sections run close together), so it's
   // pulled in until it's clear, then smoothed.
@@ -176,15 +199,12 @@ export function buildTrack(sequence: PieceId[], scale = TRACK_SCALE): BuiltTrack
   const barriers: Barrier[] = []
   for (const [side, key] of [[1, 'left'], [-1, 'right']] as const) {
     const raw = path.map((p) => {
-      const id = pieces[p.piece].id
-      let off = isGravelSide(id, side)
-        ? ROAD_HALF_WIDTH + KERB_WIDTH + GRAVEL_WIDTH + BARRIER_THICKNESS / 2
-        : ROAD_HALF_WIDTH + RUNOFF_WIDTH
-      const min = ROAD_HALF_WIDTH + 2.5
+      let off = ROAD_HALF_WIDTH + WALL_GAP + BARRIER_THICKNESS / 2
+      const min = ROAD_HALF_WIDTH + BARRIER_THICKNESS / 2 + 0.1
       while (off > min) {
         const q = offsetLeft(p, off * side)
-        if (nearestOnTrack(q.x, q.z, partial).dist >= off - 0.5) break
-        off -= 0.5
+        if (nearestOnTrack(q.x, q.z, partial).dist >= off - 0.1) break
+        off -= 0.1
       }
       return off
     })
@@ -196,7 +216,7 @@ export function buildTrack(sequence: PieceId[], scale = TRACK_SCALE): BuiltTrack
     barrierOffset[key] = smooth
 
     const line = path.map((p, i) => offsetLeft(p, smooth[i] * side))
-    const tyres = resampleLoop(line, BARRIER_THICKNESS * 0.97)
+    const blocks = resampleLoop(line, BLOCK_LENGTH)
     const anchors = resampleLoop(line, 3)
     const segments = anchors.map((a, i) => {
       const b = anchors[(i + 1) % anchors.length]
@@ -207,11 +227,35 @@ export function buildTrack(sequence: PieceId[], scale = TRACK_SCALE): BuiltTrack
         length: Math.hypot(b.x - a.x, b.z - a.z) + BARRIER_THICKNESS * 0.5,
       }
     })
-    barriers.push({ tyres, segments })
+    barriers.push({ blocks, segments })
   }
 
-  const all = barriers.flatMap((b) => b.tyres)
-  const pad = 4
+  const all = barriers.flatMap((b) => b.blocks)
+  const pad = 1
+
+  // P1 on the left, P2 on the right half a row back, and so on.
+  const finish: Pose = { x: 0, z: FINISH_AT, yaw: 0 }
+  const grid = Array.from({ length: GRID_SLOTS }, (_, i) => {
+    const back = GRID_FIRST_GAP + i * GRID_SPACING
+    const behind = { x: finish.x - Math.sin(finish.yaw) * back, z: finish.z - Math.cos(finish.yaw) * back, yaw: finish.yaw }
+    return { ...behind, ...offsetLeft(behind, (i % 2 === 0 ? 1 : -1) * GRID_COLUMN_OFFSET), position: i + 1 }
+  })
+
+  // Checkpoints: every piece entry, in the order you meet them after leaving
+  // the start/finish line (the line sits part-way down the main straight).
+  const finishS = FINISH_AT // the main straight starts the layout, heading +z from the origin
+  const entryS = pieces.map((pc) => path.find((p) => p.piece === pc.index)!.s)
+  const ahead = (x: number) => (((x - finishS) % s) + s) % s
+  const order = pieces
+    .map((pc, i) => ({ pose: pc.pose, d: ahead(entryS[i]) }))
+    .filter((c) => c.d > 1 && c.d < s - 1)
+    .sort((a, b) => a.d - b.d)
+  const checkpoints = order.map((c) => c.pose)
+  // Sectors: split the lap in three at the checkpoints closest to 1/3 and 2/3.
+  const closestTo = (target: number) =>
+    order.reduce((best, c, i) => (Math.abs(c.d - target) < Math.abs(order[best].d - target) ? i : best), 0)
+  const sectorEnds = [closestTo(s / 3), closestTo((2 * s) / 3)]
+
   return {
     pieces,
     centerline,
@@ -219,9 +263,11 @@ export function buildTrack(sequence: PieceId[], scale = TRACK_SCALE): BuiltTrack
     length: s,
     barrierOffset,
     barriers,
-    start: { x: 0, z: 0.5 * scale, yaw: 0 },
-    finish: { x: 0, z: 2 * scale, yaw: 0 },
-    checkpoints: pieces.slice(1).map((p) => p.pose),
+    start: grid[0],
+    grid,
+    finish,
+    checkpoints,
+    sectorEnds,
     bounds: {
       minX: Math.min(...all.map((p) => p.x)) - pad,
       maxX: Math.max(...all.map((p) => p.x)) + pad,
@@ -266,14 +312,12 @@ export function surfaceAt(x: number, z: number, t: BuiltTrack = track): Surface 
 
 /** Same as surfaceAt, when you already have the nearestOnTrack result. */
 export function surfaceFromNearest(n: ReturnType<typeof nearestOnTrack>, t: BuiltTrack = track): Surface {
-  if (n.dist <= ROAD_HALF_WIDTH) return 'road'
   const id = t.pieces[n.piece].id
-  if (PIECES[id].corner !== 'none' && n.dist <= ROAD_HALF_WIDTH + KERB_WIDTH) return 'kerb'
-  if (isGravelSide(id, n.side) && n.dist <= ROAD_HALF_WIDTH + KERB_WIDTH + GRAVEL_WIDTH) return 'gravel'
-  return 'grass'
+  if (n.dist > ROAD_HALF_WIDTH - KERB_WIDTH && n.dist <= ROAD_HALF_WIDTH + 0.2 && hasKerb(id, n.side)) return 'kerb'
+  // Everything else inside the walls is asphalt or smooth hall floor.
+  return 'road'
 }
 
-export { isGravelSide }
 
 export const track = buildTrack(TRACK_1)
 

@@ -5,10 +5,9 @@
 //   - `exit` is where you leave and how much you turned
 //   - `center(t)` gives the centerline point for t in 0..1
 //
-// The proportions come from the Kenney Toy Car Kit (a straight is 4 long,
-// corners have radius 2 or 4), so the same layouts would still fit its pieces.
+// A straight is 4 long (H, half a straight, is 2), corners have radius 2 or 4.
 
-export type PieceId = 'S' | 'RS' | 'LS' | 'RL' | 'LL'
+export type PieceId = 'S' | 'H' | 'RS' | 'LS' | 'RL' | 'LL'
 
 export type PieceDef = {
   exit: { x: number; z: number; turn: number }
@@ -33,6 +32,13 @@ export const PIECES: Record<PieceId, PieceDef> = {
     exit: { x: 0, z: 4, turn: 0 },
     center: (t) => ({ x: 0, z: 4 * t }),
     length: 4,
+    corner: 'none',
+    samples: 1,
+  },
+  H: {
+    exit: { x: 0, z: 2, turn: 0 },
+    center: (t) => ({ x: 0, z: 2 * t }),
+    length: 2,
     corner: 'none',
     samples: 1,
   },

@@ -11,8 +11,8 @@ const desired = new THREE.Vector3()
 const lookAt = new THREE.Vector3()
 
 const ORBIT_SPEED = 0.06 // rad/s
-const ORBIT_RADIUS = Math.max(board.width, board.depth) * 0.62
-const ORBIT_HEIGHT = Math.max(board.width, board.depth) * 0.3
+const ORBIT_RADIUS = Math.max(board.width, board.depth) * 0.6
+const ORBIT_HEIGHT = Math.max(board.width, board.depth) * 0.45
 
 /**
  * Racing: follows behind the kart with a little lag, widens the FOV with
@@ -34,7 +34,7 @@ export function ChaseCamera() {
       orbitAngle.current += ORBIT_SPEED * dt
       const a = orbitAngle.current
       desired.set(board.centerX + Math.cos(a) * ORBIT_RADIUS, ORBIT_HEIGHT, board.centerZ + Math.sin(a) * ORBIT_RADIUS)
-      lookAt.set(board.centerX, -4, board.centerZ)
+      lookAt.set(board.centerX, -2, board.centerZ)
       cam.position.lerp(desired, 1 - Math.exp(-1.5 * dt))
       look.current.lerp(lookAt, 1 - Math.exp(-1.5 * dt))
       lastTeleport.current = -1 // cut straight to the kart when the race starts
@@ -43,7 +43,7 @@ export function ChaseCamera() {
       const fx = Math.sin(yaw)
       const fz = Math.cos(yaw)
       desired.set(position.x - fx * T.camDistance, position.y + T.camHeight, position.z - fz * T.camDistance)
-      lookAt.set(position.x + fx * 2, position.y + 0.8, position.z + fz * 2)
+      lookAt.set(position.x + fx * T.camLookAhead, position.y + T.camLookHeight, position.z + fz * T.camLookAhead)
 
       if (kartState.teleports !== lastTeleport.current) {
         // The kart jumped (new lap, reset): cut straight to it instead of flying over.
@@ -56,7 +56,7 @@ export function ChaseCamera() {
       }
 
       // Wall hit: a quick, fading shake.
-      const shake = kartState.impact * kartState.impact * 0.45 + kartState.rumble * 0.04
+      const shake = kartState.impact * kartState.impact * 0.3 + kartState.rumble * 0.02
       if (shake > 0.001) {
         cam.position.x += (Math.random() - 0.5) * shake
         cam.position.y += (Math.random() - 0.5) * shake

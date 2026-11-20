@@ -1,30 +1,19 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
-import { PIECES } from './pieces'
-import {
-  EDGE_LINE_WIDTH,
-  GRAVEL_WIDTH,
-  KERB_WIDTH,
-  ROAD_HALF_WIDTH,
-  isGravelSide,
-  offsetLeft,
-  track,
-  type BuiltTrack,
-} from './layout'
+import { EDGE_LINE_WIDTH, KERB_WIDTH, ROAD_HALF_WIDTH, hasKerb, offsetLeft, track, type BuiltTrack } from './layout'
 
 const HALF = ROAD_HALF_WIDTH
 
 export const ROAD_COLORS = {
-  asphalt: '#454a55',
-  line: '#f4f3ee',
-  kerbRed: '#d93a2b',
-  kerbWhite: '#f1efe8',
-  gravel: '#d8c59b',
+  asphalt: '#3d4048',
+  line: '#f2f1ec',
+  kerbRed: '#e0352b',
+  kerbWhite: '#f4f2ec',
 }
 
-// Heights above the grass (y = 0). Tiny steps avoid flicker between layers.
-const Y = { gravel: 0.012, asphalt: 0.02, line: 0.03, kerbIn: 0.025, kerbOut: 0.07 }
-const KERB_BLOCK = 1.5 // length of each red/white block, meters
+// Heights above the hall floor (y = 0). Tiny steps avoid flicker between layers.
+const Y = { asphalt: 0.02, line: 0.03, kerb: 0.03 }
+const KERB_BLOCK = 1.2 // length of each red/white kerb block, meters (along the kerb itself)
 
 type Band = {
   from: number // signed offset from the centerline, + = left
@@ -41,10 +30,10 @@ const jitter = (i: number, k: number) => {
 }
 
 /**
- * Builds the whole circuit surface as one mesh from the track's dense
- * centerline: asphalt, white edge lines, kerbs on every corner and gravel
- * traps on the outside of the large corners. One quad per band per meter,
- * coloured per vertex, so it's a single draw call.
+ * Builds the whole track surface as one mesh from the dense centerline:
+ * asphalt, a white edge line on the straights and red/white kerbs painted on
+ * the edge in every corner. One quad per band per meter, coloured per vertex,
+ * so it's a single draw call.
  */
 export function buildRoadGeometry(t: BuiltTrack = track) {
   const positions: number[] = []
@@ -56,8 +45,19 @@ export function buildRoadGeometry(t: BuiltTrack = track) {
   const line = new THREE.Color(ROAD_COLORS.line)
   const red = new THREE.Color(ROAD_COLORS.kerbRed)
   const white = new THREE.Color(ROAD_COLORS.kerbWhite)
-  const gravel = new THREE.Color(ROAD_COLORS.gravel)
   const tmp = new THREE.Color()
+
+  // Distance travelled along the middle of each kerb, so blocks stay the same
+  // length on the outside of a corner as on the inside.
+  const kerbMid = HALF - KERB_WIDTH / 2
+  const kerbS = { 1: [0], [-1]: [0] } as Record<number, number[]>
+  for (const side of [1, -1]) {
+    for (let i = 1; i < N; i++) {
+      const a = offsetLeft(path[i - 1], side * kerbMid)
+      const b = offsetLeft(path[i], side * kerbMid)
+      kerbS[side].push(kerbS[side][i - 1] + Math.hypot(b.x - a.x, b.z - a.z))
+    }
+  }
 
   const pushQuad = (i: number, band: Band) => {
     const a = path[i]
@@ -83,46 +83,33 @@ export function buildRoadGeometry(t: BuiltTrack = track) {
   }
 
   for (let i = 0; i < N; i++) {
-    const p = path[i]
-    const id = t.pieces[p.piece].id
-    const isCorner = PIECES[id].corner !== 'none'
+    const id = t.pieces[path[i].piece].id
 
     pushQuad(i, {
       from: -HALF,
       to: HALF,
       yFrom: Y.asphalt,
       yTo: Y.asphalt,
-      color: () => tmp.copy(asphalt).multiplyScalar(1 + jitter(i, 1) * 0.035),
+      color: () => tmp.copy(asphalt).multiplyScalar(1 + jitter(i, 1) * 0.04),
     })
 
     for (const side of [1, -1]) {
-      pushQuad(i, {
-        from: side * (HALF - EDGE_LINE_WIDTH),
-        to: side * HALF,
-        yFrom: Y.line,
-        yTo: Y.line,
-        color: () => line,
-      })
-
-      if (isCorner) {
+      if (hasKerb(id, side)) {
+        const along = kerbS[side][i]
         pushQuad(i, {
-          from: side * HALF,
-          to: side * (HALF + KERB_WIDTH),
-          yFrom: Y.kerbIn,
-          yTo: Y.kerbOut,
-          color: () => (Math.floor(p.s / KERB_BLOCK) % 2 === 0 ? red : white),
+          from: side * (HALF - KERB_WIDTH),
+          to: side * HALF,
+          yFrom: Y.kerb,
+          yTo: Y.kerb,
+          color: () => (Math.floor(along / KERB_BLOCK) % 2 === 0 ? red : white),
         })
-      }
-
-      if (isGravelSide(id, side)) {
-        const wall = (side === 1 ? t.barrierOffset.left : t.barrierOffset.right)[i]
-        const outer = Math.min(HALF + KERB_WIDTH + GRAVEL_WIDTH, wall - 0.9)
+      } else {
         pushQuad(i, {
-          from: side * (HALF + KERB_WIDTH),
-          to: side * outer,
-          yFrom: Y.gravel,
-          yTo: Y.gravel,
-          color: () => tmp.copy(gravel).multiplyScalar(1 + jitter(i, 2 + side) * 0.06),
+          from: side * (HALF - EDGE_LINE_WIDTH - 0.15),
+          to: side * (HALF - 0.15),
+          yFrom: Y.line,
+          yTo: Y.line,
+          color: () => line,
         })
       }
     }
@@ -139,7 +126,7 @@ export function RoadMesh() {
   const geometry = useMemo(() => buildRoadGeometry(), [])
   return (
     <mesh geometry={geometry} receiveShadow>
-      <meshStandardMaterial vertexColors roughness={0.92} polygonOffset polygonOffsetFactor={-1} />
+      <meshStandardMaterial vertexColors roughness={0.6} polygonOffset polygonOffsetFactor={-1} />
     </mesh>
   )
 }

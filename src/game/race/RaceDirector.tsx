@@ -2,13 +2,14 @@ import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { kartState } from '../kartState'
-import { GRAVEL_WIDTH, KERB_WIDTH, ROAD_HALF_WIDTH, nearestOnTrack, track, type Pose } from '../track/layout'
-import { FINISH_BANNER_SECONDS, race, useGame } from './store'
+import { WALL_OUTER, nearestOnTrack, track, type Pose } from '../track/layout'
+import { race, useGame } from './store'
+import { recordFrame, resetRecorder } from './ghostLap'
 import { frameStep } from '../time'
 
 // How far sideways from a checkpoint's center you can be and still count as
 // crossing it. Reaches out to the tyre walls, so running wide still counts.
-const LINE_HALF_WIDTH = ROAD_HALF_WIDTH + KERB_WIDTH + GRAVEL_WIDTH + 3
+const LINE_HALF_WIDTH = WALL_OUTER + 1
 
 /** Did the kart go from behind the line to in front of it this frame? */
 function crossed(line: Pose, from: THREE.Vector3, to: THREE.Vector3) {
@@ -24,7 +25,8 @@ const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
 
 /**
  * Runs the race rules every frame: countdown, lap timer, checkpoints, finish
- * line and the "wrong way" warning. Renders nothing.
+ * line and the "wrong way" warning. In practice, crossing the line starts the
+ * next lap straight away; in qualy the store stops and waits. Renders nothing.
  */
 export function RaceDirector() {
   const prev = useRef(new THREE.Vector3().copy(kartState.position))
@@ -49,15 +51,22 @@ export function RaceDirector() {
         if (race.countdown <= 0) {
           race.countdown = 0
           race.time = 0
+          resetRecorder()
           useGame.setState({ phase: 'racing' })
         }
         break
 
       case 'racing': {
         race.time += dt
+        race.sinceLap += dt
+        recordFrame(race.time, { x: pos.x, z: pos.z, yaw: kartState.yaw, speed: kartState.speed, steer: kartState.steer })
         const cps = track.checkpoints
         if (race.nextCheckpoint < cps.length) {
-          if (crossed(cps[race.nextCheckpoint], prev.current, pos)) race.nextCheckpoint++
+          if (crossed(cps[race.nextCheckpoint], prev.current, pos)) {
+            const sector = track.sectorEnds.indexOf(race.nextCheckpoint)
+            if (sector !== -1) game.completeSector(sector, race.time)
+            race.nextCheckpoint++
+          }
         } else if (crossed(track.finish, prev.current, pos)) {
           game.finishLap(race.time)
         }
@@ -67,10 +76,7 @@ export function RaceDirector() {
         break
       }
 
-      case 'finished':
-        race.bannerTime += dt
-        if (race.bannerTime >= FINISH_BANNER_SECONDS) game.advance()
-        break
+      // 'finished' (qualy): nothing to do, the screen waits for Enter.
     }
 
     prev.current.copy(pos)

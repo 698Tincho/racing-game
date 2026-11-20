@@ -1,10 +1,12 @@
 import { track } from '../track/layout'
 
-// The diorama board: a slab of grass and soil the whole circuit sits on.
-export const BOARD_MARGIN = 30 // grass around the tyre walls, meters
-export const BOARD_THICKNESS = 9
+// The kart hall: a floor slab with walls around the circuit.
+// (Still called `board`: it's the diorama base everything sits on.)
+export const BOARD_MARGIN = 9 // floor between the outermost walls and the hall walls, meters
+export const BOARD_THICKNESS = 3
+export const HALL_HEIGHT = 9
 
-// Top of the board. The road is drawn a couple of centimeters above it.
+// Top of the floor. The road is drawn a couple of centimeters above it.
 export const FLOOR_Y = 0
 
 const { minX, maxX, minZ, maxZ } = track.bounds

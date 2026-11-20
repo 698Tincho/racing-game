@@ -1,7 +1,7 @@
 import { Suspense, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import * as THREE from 'three'
-import { KeyboardControls, PerformanceMonitor } from '@react-three/drei'
+import { Environment, KeyboardControls, Lightformer, PerformanceMonitor } from '@react-three/drei'
 import { Physics } from '@react-three/rapier'
 import { keyMap } from './game/controls'
 import { Kart } from './game/Kart'
@@ -9,8 +9,9 @@ import { Track } from './game/track/Track'
 import { Lights } from './game/Lights'
 import { ChaseCamera } from './game/ChaseCamera'
 import { RaceDirector } from './game/race/RaceDirector'
+import { Ghost } from './game/race/Ghost'
 import { Sky } from './game/scene/Sky'
-import { Board } from './game/scene/Board'
+import { Hall } from './game/scene/Hall'
 import { Props } from './game/scene/Props'
 import { FOG } from './game/scene/palette'
 import { Dust } from './game/effects/Dust'
@@ -47,7 +48,15 @@ export default function App() {
         <fog attach="fog" args={[FOG.color, FOG.near, FOG.far]} />
         <Sky />
         <Lights />
-        <Board />
+        <Hall />
+        {/* Soft reflections on the glossy floor and karts: a few light panels, rendered once. */}
+        <Environment resolution={128} frames={1}>
+          <color attach="background" args={['#3a3f4a']} />
+          {[-12, 0, 12].map((x) => (
+            <Lightformer key={x} form="rect" intensity={3} position={[x, 8, 0]} rotation-x={Math.PI / 2} scale={[6, 30, 1]} />
+          ))}
+          <Lightformer form="rect" intensity={1.2} color="#cfe6ff" position={[0, 4, -20]} scale={[40, 3, 1]} />
+        </Environment>
         <Suspense fallback={null}>
           <Physics gravity={[0, -20, 0]} timeStep="vary" debug={debug}>
             <Track />
@@ -55,6 +64,7 @@ export default function App() {
             <RaceDirector />
           </Physics>
           <Props />
+          <Ghost />
           <Dust />
         </Suspense>
         <ChaseCamera />

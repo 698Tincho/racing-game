@@ -1,44 +1,33 @@
 import { useMemo } from 'react'
-import { Clone, useGLTF } from '@react-three/drei'
+import { Clone } from '@react-three/drei'
 import * as THREE from 'three'
-import { modelUrl } from '../assets'
-import { ROAD_HALF_WIDTH, RUNOFF_WIDTH, offsetLeft, track } from '../track/layout'
+import { useRacingModel } from '../kit'
+import { ROAD_HALF_WIDTH, track } from '../track/layout'
 import { FLOOR_Y } from './boardSize'
+import { scenery, type Placement } from './scenery'
 
 const HALF = ROAD_HALF_WIDTH
-const CRATE_SCALE = 5
 
 /**
- * Trackside dressing, visual only: crate piles behind the tyre walls by the
- * start, the checkered start/finish line and the grid box.
+ * Trackside dressing, visual only: grandstands, pits, tents and flags from
+ * the Racing Kit (laid out in scenery.ts), the checkered start/finish line
+ * and the 8-car starting grid.
  */
 export function Props() {
-  const box = useGLTF(modelUrl('item-box')).scene
-
-  // A couple of crate piles near the start, just for colour.
-  const piles = useMemo(() => {
-    const start = track.finish
-    const behindWall = HALF + RUNOFF_WIDTH + 5
-    return [
-      { ...offsetLeft({ ...start, z: start.z + 14 }, behindWall), r: 0.3 },
-      { ...offsetLeft({ ...start, z: start.z - 10 }, behindWall + 2), r: -0.5 },
-    ]
-  }, [])
-
-  const S = CRATE_SCALE
   return (
     <>
-      {piles.map((p, i) => (
-        <group key={`p${i}`} position={[p.x, FLOOR_Y, p.z]} rotation={[0, p.r, 0]}>
-          <Clone object={box} position={[-1.2, 0, 0]} scale={S} castShadow />
-          <Clone object={box} position={[1.2, 0, 0.3]} rotation={[0, 0.4, 0]} scale={S} castShadow />
-          <Clone object={box} position={[0, 0.445 * S, 0.1]} rotation={[0, -0.2, 0]} scale={S} castShadow />
-        </group>
+      {scenery.map((p, i) => (
+        <SceneryModel key={i} p={p} />
       ))}
       <StartLine />
-      <GridBox />
+      <Grid />
     </>
   )
+}
+
+function SceneryModel({ p }: { p: Placement }) {
+  const scene = useRacingModel(p.model)
+  return <Clone object={scene} position={[p.x, FLOOR_Y, p.z]} rotation={[0, p.yaw, 0]} scale={p.scale} />
 }
 
 function useCanvasTexture(width: number, height: number, draw: (ctx: CanvasRenderingContext2D) => void) {
@@ -77,29 +66,68 @@ function StartLine() {
   )
 }
 
-function GridBox() {
-  const tex = useCanvasTexture(128, 160, (ctx) => {
-    ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 8
-    ctx.beginPath()
-    ctx.moveTo(8, 152)
-    ctx.lineTo(8, 8)
-    ctx.lineTo(120, 8)
-    ctx.lineTo(120, 152)
-    ctx.stroke()
-    ctx.fillStyle = 'rgba(255,255,255,0.85)'
-    ctx.font = 'bold 64px system-ui, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.fillText('1', 64, 112)
-  })
-  const { x, z, yaw } = track.start
-  // Box drawn just behind the kart's nose; text faces the driver.
+/** All 8 starting positions, F1 style. */
+function Grid() {
   return (
-    <mesh position={[x, 0.04, z + 0.4]} rotation={[-Math.PI / 2, 0, yaw + Math.PI]}>
-      <planeGeometry args={[2.4, 3]} />
-      <meshStandardMaterial map={tex} {...decal} opacity={0.9} />
-    </mesh>
+    <>
+      {track.grid.map((slot) => (
+        <GridSlot key={slot.position} slot={slot} />
+      ))}
+    </>
   )
 }
 
-useGLTF.preload(modelUrl('item-box'))
+const SLOT_WIDTH = 1.5
+const SLOT_LENGTH = 2
+
+/**
+ * One grid position: a white bracket just ahead of the car's nose (bar across,
+ * short legs back) and the position number painted beside it, on the side
+ * nearer the edge of the road, readable from the driver's seat.
+ */
+function GridSlot({ slot }: { slot: (typeof track.grid)[number] }) {
+  const bracket = useCanvasTexture(260, 320, (ctx) => {
+    // Chunky lines like the Racing Kit's start-position markings.
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, 260, 32) // front bar
+    ctx.fillRect(0, 0, 32, 150) // left leg
+    ctx.fillRect(228, 0, 32, 150) // right leg
+  })
+  const number = useCanvasTexture(160, 160, (ctx) => {
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'
+    ctx.font = '900 128px system-ui, -apple-system, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(String(slot.position), 80, 88)
+  })
+
+  // Positions in the slot's own frame: +z forward, +x left.
+  const fx = Math.sin(slot.yaw)
+  const fz = Math.cos(slot.yaw)
+  const at = (forward: number, left: number) => ({
+    x: slot.x + fx * forward + Math.cos(slot.yaw) * left,
+    z: slot.z + fz * forward - Math.sin(slot.yaw) * left,
+  })
+  // Car centre sits ~0.4 m behind the middle of the box, nose just short of the bar.
+  const box = at(0.3, 0)
+  const outward = slot.position % 2 === 1 ? 1 : -1 // odd slots are on the left
+  const label = at(0.6, outward * (SLOT_WIDTH / 2 + 0.45))
+
+  // Canvas top = front of the slot; rotating by yaw + π makes it read upright
+  // for a driver looking down the track.
+  const rotation: [number, number, number] = [-Math.PI / 2, 0, slot.yaw + Math.PI]
+  return (
+    <>
+      <mesh position={[box.x, 0.04, box.z]} rotation={rotation} receiveShadow>
+        <planeGeometry args={[SLOT_WIDTH, SLOT_LENGTH]} />
+        <meshStandardMaterial map={bracket} {...decal} />
+      </mesh>
+      <mesh position={[label.x, 0.04, label.z]} rotation={rotation} receiveShadow>
+        <planeGeometry args={[0.8, 0.8]} />
+        <meshStandardMaterial map={number} {...decal} />
+      </mesh>
+    </>
+  )
+}
+
+for (const name of new Set(scenery.map((p) => p.model))) useRacingModel.preload(name)
