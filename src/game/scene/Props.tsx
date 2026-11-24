@@ -1,133 +1,93 @@
-import { useMemo } from 'react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import { Clone } from '@react-three/drei'
 import * as THREE from 'three'
 import { useRacingModel } from '../kit'
-import { ROAD_HALF_WIDTH, track } from '../track/layout'
 import { FLOOR_Y } from './boardSize'
 import { scenery, type Placement } from './scenery'
 
-const HALF = ROAD_HALF_WIDTH
+// Models that appear many times are drawn as instances (one draw call per
+// part instead of one per copy).
+const INSTANCED = new Set(['treeLarge', 'treeSmall', 'lightPostModern', 'barrierRed', 'barrierWhite', 'barrierWall', 'fenceStraight'])
 
 /**
- * Trackside dressing, visual only: grandstands, pits, tents and flags from
- * the Racing Kit (laid out in scenery.ts), the checkered start/finish line
- * and the 8-car starting grid.
+ * Trackside dressing from the Racing Kit, visual only: tents, the radar dish,
+ * light posts, billboards, flags, walls, the perimeter fence and trees (laid
+ * out in scenery.ts).
  */
 export function Props() {
+  const groups = useMemo(() => {
+    const by = new Map<string, Placement[]>()
+    for (const p of scenery) if (INSTANCED.has(p.model)) by.set(p.model, [...(by.get(p.model) ?? []), p])
+    return [...by]
+  }, [])
   return (
     <>
-      {scenery.map((p, i) => (
-        <SceneryModel key={i} p={p} />
+      {scenery
+        // (PitBuilding draws the pits, stacked on the kit's own grid.)
+        .filter((p) => !INSTANCED.has(p.model) && !p.model.startsWith('pits'))
+        .map((p, i) => (
+          <SceneryModel key={i} p={p} />
+        ))}
+      {groups.map(([model, list]) => (
+        <InstancedModel key={model} model={model} placements={list} />
       ))}
-      <StartLine />
-      <Grid />
     </>
   )
 }
 
 function SceneryModel({ p }: { p: Placement }) {
   const scene = useRacingModel(p.model)
-  return <Clone object={scene} position={[p.x, FLOOR_Y, p.z]} rotation={[0, p.yaw, 0]} scale={p.scale} />
+  return <Clone object={scene} position={[p.x, FLOOR_Y + (p.lift ?? 0), p.z]} rotation={[0, p.yaw, 0]} scale={p.scale} />
 }
 
-function useCanvasTexture(width: number, height: number, draw: (ctx: CanvasRenderingContext2D) => void) {
-  return useMemo(() => {
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    draw(canvas.getContext('2d')!)
-    const tex = new THREE.CanvasTexture(canvas)
-    tex.colorSpace = THREE.SRGBColorSpace
-    tex.anisotropy = 8
-    return tex
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-}
-
-const decal = { polygonOffset: true, polygonOffsetFactor: -2, transparent: true, roughness: 0.9 } as const
-
-function StartLine() {
-  const cols = 16
-  const rows = 3
-  const tex = useCanvasTexture(cols * 16, rows * 16, (ctx) => {
-    for (let x = 0; x < cols; x++)
-      for (let y = 0; y < rows; y++) {
-        ctx.fillStyle = (x + y) % 2 ? '#1d2433' : '#ffffff'
-        ctx.fillRect(x * 16, y * 16, 16, 16)
-      }
-  })
-  tex.magFilter = THREE.NearestFilter
-  const { x, z, yaw } = track.finish
-  return (
-    <mesh position={[x, 0.04, z]} rotation={[-Math.PI / 2, 0, yaw]} receiveShadow>
-      <planeGeometry args={[HALF * 2, (HALF * 2 * rows) / cols]} />
-      <meshStandardMaterial map={tex} {...decal} />
-    </mesh>
-  )
-}
-
-/** All 8 starting positions, F1 style. */
-function Grid() {
+/** Every copy of one Racing Kit model, as one instanced mesh per part. */
+export function InstancedModel({ model, placements }: { model: string; placements: Placement[] }) {
+  const scene = useRacingModel(model)
+  const parts = useMemo(() => {
+    scene.updateMatrixWorld(true)
+    const out: { geometry: THREE.BufferGeometry; material: THREE.Material; matrix: THREE.Matrix4 }[] = []
+    scene.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (m.isMesh) out.push({ geometry: m.geometry, material: m.material as THREE.Material, matrix: m.matrixWorld.clone() })
+    })
+    return out
+  }, [scene])
   return (
     <>
-      {track.grid.map((slot) => (
-        <GridSlot key={slot.position} slot={slot} />
+      {parts.map((part, i) => (
+        <InstancedPart key={i} {...part} placements={placements} />
       ))}
     </>
   )
 }
 
-const SLOT_WIDTH = 1.5
-const SLOT_LENGTH = 2
-
-/**
- * One grid position: a white bracket just ahead of the car's nose (bar across,
- * short legs back) and the position number painted beside it, on the side
- * nearer the edge of the road, readable from the driver's seat.
- */
-function GridSlot({ slot }: { slot: (typeof track.grid)[number] }) {
-  const bracket = useCanvasTexture(260, 320, (ctx) => {
-    // Chunky lines like the Racing Kit's start-position markings.
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, 260, 32) // front bar
-    ctx.fillRect(0, 0, 32, 150) // left leg
-    ctx.fillRect(228, 0, 32, 150) // right leg
-  })
-  const number = useCanvasTexture(160, 160, (ctx) => {
-    ctx.fillStyle = 'rgba(255,255,255,0.92)'
-    ctx.font = '900 128px system-ui, -apple-system, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(String(slot.position), 80, 88)
-  })
-
-  // Positions in the slot's own frame: +z forward, +x left.
-  const fx = Math.sin(slot.yaw)
-  const fz = Math.cos(slot.yaw)
-  const at = (forward: number, left: number) => ({
-    x: slot.x + fx * forward + Math.cos(slot.yaw) * left,
-    z: slot.z + fz * forward - Math.sin(slot.yaw) * left,
-  })
-  // Car centre sits ~0.4 m behind the middle of the box, nose just short of the bar.
-  const box = at(0.3, 0)
-  const outward = slot.position % 2 === 1 ? 1 : -1 // odd slots are on the left
-  const label = at(0.6, outward * (SLOT_WIDTH / 2 + 0.45))
-
-  // Canvas top = front of the slot; rotating by yaw + π makes it read upright
-  // for a driver looking down the track.
-  const rotation: [number, number, number] = [-Math.PI / 2, 0, slot.yaw + Math.PI]
-  return (
-    <>
-      <mesh position={[box.x, 0.04, box.z]} rotation={rotation} receiveShadow>
-        <planeGeometry args={[SLOT_WIDTH, SLOT_LENGTH]} />
-        <meshStandardMaterial map={bracket} {...decal} />
-      </mesh>
-      <mesh position={[label.x, 0.04, label.z]} rotation={rotation} receiveShadow>
-        <planeGeometry args={[0.8, 0.8]} />
-        <meshStandardMaterial map={number} {...decal} />
-      </mesh>
-    </>
-  )
+function InstancedPart({
+  geometry,
+  material,
+  matrix,
+  placements,
+}: {
+  geometry: THREE.BufferGeometry
+  material: THREE.Material
+  matrix: THREE.Matrix4
+  placements: Placement[]
+}) {
+  const mesh = useRef<THREE.InstancedMesh>(null)
+  useLayoutEffect(() => {
+    const m = mesh.current
+    if (!m) return
+    const place = new THREE.Matrix4()
+    const q = new THREE.Quaternion()
+    const up = new THREE.Vector3(0, 1, 0)
+    placements.forEach((p, i) => {
+      q.setFromAxisAngle(up, p.yaw)
+      place.compose(new THREE.Vector3(p.x, FLOOR_Y, p.z), q, new THREE.Vector3(p.scale, p.scale, p.scale))
+      m.setMatrixAt(i, place.multiply(matrix))
+    })
+    m.instanceMatrix.needsUpdate = true
+    m.computeBoundingSphere()
+  }, [placements, matrix])
+  return <instancedMesh ref={mesh} args={[geometry, material, placements.length]} castShadow receiveShadow />
 }
 
 for (const name of new Set(scenery.map((p) => p.model))) useRacingModel.preload(name)

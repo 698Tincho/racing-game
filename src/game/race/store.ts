@@ -1,22 +1,26 @@
 import { create } from 'zustand'
 import { finishRecording, loadGhost, resetRecorder } from './ghostLap'
+import { DEFAULT_CAR, isCarId, type CarId } from '../cars'
 
 // Two ways to play:
 //   practice — as many laps as you like. First lap from the grid, then flying
 //              laps; each lap time pops up as you cross the line. Not saved.
-//   qualy    — ATTEMPTS timed laps, each a standing start from pole. After each
-//              lap the game waits for you to press Enter before the next one.
-//              Your best attempt is saved as the track record.
+//   qualy    — ATTEMPTS flying laps. Each starts in your pit box: drive out of
+//              the pits, do an out-lap, and the timed lap starts when you cross
+//              the line. After each lap the game waits for you to press Enter
+//              before the next one. Your best attempt is saved as the track record.
 export type Mode = 'practice' | 'qualy'
 
 export const ATTEMPTS = 3
 export const COUNTDOWN_SECONDS = 3
-// Bump this when a track's layout changes, so old records don't carry over.
-const TRACK_ID = 'hall-1'
+// Bump this when the track's layout or the driving physics change, so old
+// records don't carry over.
+const TRACK_ID = 'lider-7'
 
 export type Phase =
   | 'menu' // title screen
   | 'countdown' // 3, 2, 1 on the grid
+  | 'outlap' // qualy: out of the pits and round to the line, timer not running yet
   | 'racing' // timer running
   | 'finished' // qualy: lap done, waiting for Enter
   | 'results' // qualy: summary after the last attempt
@@ -55,6 +59,12 @@ type GameState = {
   recordSectors: (number | null)[]
   /** Show the ghost of your fastest lap. */
   showGhost: boolean
+  /** Menu hidden, free camera to look around the whole track. */
+  viewing: boolean
+  /** Which camera you race with. The high view is switched off for now. */
+  cameraView: CameraView
+  /** Which car you drive (saved). */
+  carId: CarId
 
   startPractice: () => void
   startQualy: () => void
@@ -65,7 +75,21 @@ type GameState = {
   /** The kart crossed the end of sector `index` at lap time `time`. */
   completeSector: (index: number, time: number) => void
   toggleGhost: () => void
+  setViewing: (on: boolean) => void
+  setCar: (id: CarId) => void
 }
+
+const carKey = 'kart-race:car'
+const loadCar = (): CarId => {
+  try {
+    const saved = localStorage.getItem(carKey)
+    return isCarId(saved) ? saved : DEFAULT_CAR
+  } catch {
+    return DEFAULT_CAR
+  }
+}
+
+export type CameraView = 'high' | 'chase'
 
 // Values that change every frame. Kept out of React on purpose (see kartState).
 export const race = {
@@ -77,6 +101,8 @@ export const race = {
   sinceLap: Infinity,
   /** Lap time when the current sector started. */
   sectorStart: 0,
+  /** Qualy out-lap: you've left the pit lane, so the next time over the line starts the lap. */
+  leftPits: false,
 }
 
 const bestKey = `kart-race:best:${TRACK_ID}`
@@ -122,6 +148,7 @@ const resetLap = () => {
   race.wrongWay = false
   race.sinceLap = Infinity
   race.sectorStart = 0
+  race.leftPits = false
   resetRecorder()
 }
 
@@ -139,6 +166,9 @@ export const useGame = create<GameState>()((set, get) => ({
   bestSectors: [null, null, null],
   recordSectors: loadSectors(),
   showGhost: true,
+  viewing: false,
+  cameraView: 'chase',
+  carId: loadCar(),
 
   startPractice: () => {
     resetLap()
@@ -157,7 +187,7 @@ export const useGame = create<GameState>()((set, get) => ({
     resetLap()
     set((s) => ({
       mode: 'qualy',
-      phase: 'countdown',
+      phase: 'outlap',
       attempts: [],
       lastLapTime: null,
       sectors: [],
@@ -168,6 +198,8 @@ export const useGame = create<GameState>()((set, get) => ({
   },
 
   finishLap: (time) => {
+    // `time` is the exact moment at the line, a little before the current step ended.
+    const pastTheLine = Math.max(0, race.time - time)
     // Sector 3 ends at the line.
     get().completeSector(SECTORS - 1, time)
     finishRecording(time)
@@ -175,8 +207,8 @@ export const useGame = create<GameState>()((set, get) => ({
     const lapSectors = { lastSectors: sectors, sectors: [] as SectorTime[] }
 
     if (mode === 'practice') {
-      // Keep going: the next lap starts right now, from the line.
-      race.time = 0
+      // Keep going: the next lap started at the line, so it already has this bit.
+      race.time = pastTheLine
       race.nextCheckpoint = 0
       race.sinceLap = 0
       race.sectorStart = 0
@@ -186,6 +218,7 @@ export const useGame = create<GameState>()((set, get) => ({
 
     const isRecord = personalBest === null || time < personalBest
     if (isRecord) saveBest(time)
+    race.time = time // the on-screen timer stops on the exact lap time
     set({
       phase: 'finished',
       attempts: [...attempts, time],
@@ -203,10 +236,10 @@ export const useGame = create<GameState>()((set, get) => ({
       return
     }
     resetLap()
-    set((s) => ({ phase: 'countdown', gridId: s.gridId + 1 }))
+    set((s) => ({ phase: 'outlap', gridId: s.gridId + 1 }))
   },
 
-  backToMenu: () => set((s) => ({ phase: 'menu', gridId: s.gridId + 1 })),
+  backToMenu: () => set((s) => ({ phase: 'menu', viewing: false, gridId: s.gridId + 1 })),
 
   completeSector: (index, time) => {
     const { sectors, bestSectors, recordSectors } = get()
@@ -231,6 +264,15 @@ export const useGame = create<GameState>()((set, get) => ({
   },
 
   toggleGhost: () => set((s) => ({ showGhost: !s.showGhost })),
+  setViewing: (on) => set({ viewing: on }),
+  setCar: (carId) => {
+    set({ carId })
+    try {
+      localStorage.setItem(carKey, carId)
+    } catch {
+      // private mode etc: the choice just won't survive a reload
+    }
+  },
 }))
 
 /** Fastest of a list of lap times, or null. */

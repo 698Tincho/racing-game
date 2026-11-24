@@ -1,43 +1,51 @@
 import { useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useAfterPhysicsStep } from '@react-three/rapier'
 import * as THREE from 'three'
 import { kartState } from '../kartState'
 import { WALL_OUTER, nearestOnTrack, track, type Pose } from '../track/layout'
+import { pitLane } from '../track/pitLane'
 import { race, useGame } from './store'
 import { recordFrame, resetRecorder } from './ghostLap'
-import { frameStep } from '../time'
+import { SIM_DT } from '../time'
 
 // How far sideways from a checkpoint's center you can be and still count as
 // crossing it. Reaches out to the tyre walls, so running wide still counts.
 const LINE_HALF_WIDTH = WALL_OUTER + 1
+// The start/finish line also reaches across the pit lane, which passes it too.
+const FINISH_HALF_WIDTH = 16
 
-/** Did the kart go from behind the line to in front of it this frame? */
-function crossed(line: Pose, from: THREE.Vector3, to: THREE.Vector3) {
+/**
+ * Did the kart go from behind the line to in front of it this step?
+ * Returns how far through the step it crossed (0..1), or null if it didn't.
+ */
+function crossing(line: Pose, from: THREE.Vector3, to: THREE.Vector3, halfWidth = LINE_HALF_WIDTH) {
   const fx = Math.sin(line.yaw)
   const fz = Math.cos(line.yaw)
   const before = (from.x - line.x) * fx + (from.z - line.z) * fz
   const after = (to.x - line.x) * fx + (to.z - line.z) * fz
   const side = Math.abs((to.x - line.x) * fz - (to.z - line.z) * fx)
-  return before < 0 && after >= 0 && side < LINE_HALF_WIDTH
+  if (!(before < 0 && after >= 0 && side < halfWidth)) return null
+  return before / (before - after)
 }
 
 const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
 
 /**
- * Runs the race rules every frame: countdown, lap timer, checkpoints, finish
- * line and the "wrong way" warning. In practice, crossing the line starts the
- * next lap straight away; in qualy the store stops and waits. Renders nothing.
+ * Runs the race rules every simulation step: countdown, out-lap, lap timer,
+ * checkpoints, finish line and the "wrong way" warning. Sector and lap times
+ * use the exact moment within the step that the kart crossed the line. Taking
+ * the pit lane skips the checkpoints it bypasses. In practice, crossing the
+ * line starts the next lap straight away; in qualy the store stops and waits.
+ * Renders nothing.
  */
 export function RaceDirector() {
-  const prev = useRef(new THREE.Vector3().copy(kartState.position))
+  const prev = useRef(new THREE.Vector3().copy(kartState.sim.position))
   const lastTeleport = useRef(kartState.teleports)
 
-  useFrame((_, delta) => {
-    // Same clamped step as the kart, so the timer matches the simulation even
-    // if the frame rate drops.
-    const dt = frameStep(delta)
+  useAfterPhysicsStep(() => {
+    const dt = SIM_DT
     const game = useGame.getState()
-    const pos = kartState.position
+    const pos = kartState.sim.position
 
     // After a teleport (grid reset), don't treat the jump as driving.
     if (kartState.teleports !== lastTeleport.current) {
@@ -56,23 +64,44 @@ export function RaceDirector() {
         }
         break
 
+      case 'outlap': {
+        // Out of the pits and once round: the timed lap starts at the line.
+        if (!race.leftPits && !kartState.inPit) race.leftPits = true
+        const at = race.leftPits ? crossing(track.finish, prev.current, pos, FINISH_HALF_WIDTH) : null
+        if (at !== null) {
+          race.time = dt * (1 - at)
+          race.nextCheckpoint = 0
+          race.sectorStart = 0
+          resetRecorder()
+          useGame.setState({ phase: 'racing' })
+        }
+        break
+      }
+
       case 'racing': {
         race.time += dt
         race.sinceLap += dt
-        recordFrame(race.time, { x: pos.x, z: pos.z, yaw: kartState.yaw, speed: kartState.speed, steer: kartState.steer })
+        recordFrame(race.time, { x: pos.x, z: pos.z, yaw: kartState.sim.yaw, speed: kartState.speed, steer: kartState.steer })
+        const timeAt = (fraction: number) => race.time - dt * (1 - fraction)
         const cps = track.checkpoints
+        // The pit lane goes round these, so they count as passed.
+        while (kartState.inPit && race.nextCheckpoint < cps.length && pitLane.bypassed.has(race.nextCheckpoint)) {
+          race.nextCheckpoint++
+        }
         if (race.nextCheckpoint < cps.length) {
-          if (crossed(cps[race.nextCheckpoint], prev.current, pos)) {
+          const at = crossing(cps[race.nextCheckpoint], prev.current, pos)
+          if (at !== null) {
             const sector = track.sectorEnds.indexOf(race.nextCheckpoint)
-            if (sector !== -1) game.completeSector(sector, race.time)
+            if (sector !== -1) game.completeSector(sector, timeAt(at))
             race.nextCheckpoint++
           }
-        } else if (crossed(track.finish, prev.current, pos)) {
-          game.finishLap(race.time)
+        } else {
+          const at = crossing(track.finish, prev.current, pos, FINISH_HALF_WIDTH)
+          if (at !== null) game.finishLap(timeAt(at))
         }
 
         const n = nearestOnTrack(pos.x, pos.z)
-        race.wrongWay = kartState.speed > 2 && Math.abs(wrapAngle(kartState.yaw - n.yaw)) > 1.9
+        race.wrongWay = !kartState.inPit && kartState.speed > 2 && Math.abs(wrapAngle(kartState.sim.yaw - n.yaw)) > 1.9
         break
       }
 

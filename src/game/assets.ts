@@ -1,8 +1,12 @@
-// Two Kenney kits (both CC0), served from /public:
-//   racing-kit  — the race cars, start gantry, grandstands, pits, trees...
-//   toy-car-kit — still used for the tyres in the tyre walls and the dust puffs.
+// All the 3D models are from Kenney (CC0), served from /public.
+//
+// Racing Kit: the road, kerbs, barriers, grass, pit garages, tents, billboards,
+// lights, trees and flags.
 export const RACING_KIT_URL = '/models/racing-kit'
-export const TOY_KIT_URL = '/models/toy-car-kit'
 
 export const racingModelUrl = (name: string) => `${RACING_KIT_URL}/${name}.glb`
-export const modelUrl = (name: string) => `${TOY_KIT_URL}/${name}.glb`
+
+// Car Kit: the cars you drive, the parked vehicles and the loose tyres.
+export const CAR_KIT_URL = '/models/car-kit'
+
+export const carKitModelUrl = (name: string) => `${CAR_KIT_URL}/${name}.glb`

@@ -1,18 +1,37 @@
 import { useEffect } from 'react'
 import { ATTEMPTS, bestOf, formatDelta, formatTime, useGame } from '../game/race/store'
+import { playUiSound } from '../game/audio/sound'
+import { CARS } from '../game/cars'
+import { MainMenu } from './MainMenu'
 
 /**
  * Menu, the between-laps screen in qualy, and results.
- * Keys: Enter = start qualy / next attempt, P = practice, G = ghost on/off, Esc = menu.
+ * Keys: Enter = start qualy / next attempt, P = practice, 1-3 = car, V = view the track,
+ * G = ghost on/off, Esc = menu (or stop viewing).
  */
 export function Screens() {
   const phase = useGame((s) => s.phase)
+  const viewing = useGame((s) => s.viewing)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat) return
-      const { phase, startQualy, startPractice, advance, backToMenu } = useGame.getState()
+      const { phase, viewing, startQualy, startPractice, advance, backToMenu, setViewing } = useGame.getState()
       const confirm = e.code === 'Enter' || e.code === 'Space'
+      // Tabbed onto a menu control: let Enter or Space activate that one.
+      if (phase === 'menu' && confirm && (e.target as HTMLElement).closest?.('button, a')) return
+      if (viewing) {
+        if (e.code === 'Escape' || e.code === 'KeyV') setViewing(false)
+        return
+      }
+      if (phase === 'menu' && e.code === 'KeyV') {
+        setViewing(true)
+        return
+      }
+      if (phase === 'menu') {
+        const picked = CARS[Number(e.code.replace('Digit', '')) - 1]
+        if (e.code.startsWith('Digit') && picked) useGame.getState().setCar(picked.id)
+      }
       if (phase === 'menu' || phase === 'results') {
         if (confirm) {
           e.preventDefault()
@@ -26,48 +45,33 @@ export function Screens() {
       if (e.code === 'KeyG') useGame.getState().toggleGhost()
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    // Small sounds for picking a car, starting a race and opening the track view.
+    const stopSounds = useGame.subscribe((now, before) => {
+      if (now.carId !== before.carId) playUiSound('rotate')
+      else if (now.viewing !== before.viewing || (before.phase === 'menu' && now.phase === 'countdown')) playUiSound('toggle')
+    })
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      stopSounds()
+    }
   }, [])
 
-  if (phase === 'menu') return <Menu />
+  if (viewing) return <Viewing />
+  if (phase === 'menu') return <MainMenu />
   if (phase === 'finished') return <BetweenLaps />
   if (phase === 'results') return <Results />
   return null
 }
 
-function Menu() {
-  const personalBest = useGame((s) => s.personalBest)
-  const startQualy = useGame((s) => s.startQualy)
-  const startPractice = useGame((s) => s.startPractice)
+/** The menu hidden, so you can orbit around the whole track. */
+function Viewing() {
+  const setViewing = useGame((s) => s.setViewing)
   return (
-    <div className="screen screen-dim">
-      <div className="card">
-        <p className="eyebrow">Kart hall · time trial</p>
-        <h1>Kart Race</h1>
-        <div className="modes">
-          <button className="mode" onClick={startPractice}>
-            <span className="mode-name">
-              Practice <kbd>P</kbd>
-            </span>
-            <span className="mode-info">Unlimited laps to learn the track. Times aren't saved.</span>
-          </button>
-          <button className="mode mode-primary" onClick={startQualy}>
-            <span className="mode-name">
-              Start qualy <kbd>Enter</kbd>
-            </span>
-            <span className="mode-info">{ATTEMPTS} timed attempts from pole. Your best one counts.</span>
-          </button>
-        </div>
-        <p className="record">
-          Track record <strong>{formatTime(personalBest)}</strong>
-        </p>
-        <p className="controls">
-          <kbd>W</kbd>
-          <kbd>A</kbd>
-          <kbd>S</kbd>
-          <kbd>D</kbd> or arrows to drive · <kbd>R</kbd> back on track
-        </p>
-      </div>
+    <div className="viewing">
+      <span>Drag to orbit · right-drag to pan · scroll to zoom</span>
+      <button className="cta" onClick={() => setViewing(false)}>
+        Back to menu <kbd>V</kbd>
+      </button>
     </div>
   )
 }

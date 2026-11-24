@@ -1,34 +1,45 @@
 import { useEffect, useRef } from 'react'
 import { kartState } from '../game/kartState'
+import { TUNING as T } from '../game/tuning'
 
-const MAX_KMH = 80
-const START = 135 // degrees, where 0 km/h sits (SVG angles: 0 = right, clockwise)
-const SWEEP = 270
+const MAX_KMH = Math.ceil((T.maxSpeed * 3.6) / 10) * 10
+const BLOCKS = 20
+const START = 150 // degrees, where 0 km/h sits (SVG angles: 0 = right, clockwise)
+const SWEEP = 240
+const BLOCK_GAP = 2.4 // degrees between blocks
+const RADIUS = 74
 
 const polar = (deg: number, r: number) => {
   const a = (deg * Math.PI) / 180
-  return [60 + Math.cos(a) * r, 60 + Math.sin(a) * r]
+  return [90 + Math.cos(a) * r, 90 + Math.sin(a) * r]
 }
 
-/** Round gauge with a needle, like a kart dash. Updated straight from the frame loop. */
+const blockPath = (i: number) => {
+  const step = SWEEP / BLOCKS
+  const [sx, sy] = polar(START + i * step + BLOCK_GAP / 2, RADIUS)
+  const [ex, ey] = polar(START + (i + 1) * step - BLOCK_GAP / 2, RADIUS)
+  return `M ${sx} ${sy} A ${RADIUS} ${RADIUS} 0 0 1 ${ex} ${ey}`
+}
+
+/** Speed as a ring of red and white kerb blocks. Updated straight from the frame loop. */
 export function Speedometer() {
-  const needle = useRef<SVGGElement>(null)
+  const blocks = useRef<(SVGPathElement | null)[]>([])
   const value = useRef<HTMLSpanElement>(null)
-  const fill = useRef<SVGPathElement>(null)
 
   useEffect(() => {
     let raf = 0
-    let shown = -1
-    const arcLength = fill.current?.getTotalLength() ?? 1
-    if (fill.current) fill.current.style.strokeDasharray = String(arcLength)
+    let shownSpeed = -1
+    let shownBlocks = -1
     const tick = () => {
       const kmh = Math.abs(kartState.speed) * 3.6
-      const k = Math.min(kmh / MAX_KMH, 1)
-      needle.current?.setAttribute('transform', `rotate(${START + k * SWEEP} 60 60)`)
-      if (fill.current) fill.current.style.strokeDashoffset = String(arcLength * (1 - k))
+      const lit = Math.round(Math.min(kmh / MAX_KMH, 1) * BLOCKS)
+      if (lit !== shownBlocks) {
+        shownBlocks = lit
+        blocks.current.forEach((block, i) => block?.classList.toggle('is-lit', i < lit))
+      }
       const rounded = Math.round(kmh)
-      if (value.current && rounded !== shown) {
-        shown = rounded
+      if (value.current && rounded !== shownSpeed) {
+        shownSpeed = rounded
         value.current.textContent = String(rounded)
       }
       raf = requestAnimationFrame(tick)
@@ -37,36 +48,20 @@ export function Speedometer() {
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  const [sx, sy] = polar(START, 50)
-  const [ex, ey] = polar(START + SWEEP, 50)
-  const arc = `M ${sx} ${sy} A 50 50 0 1 1 ${ex} ${ey}`
-  const ticks = Array.from({ length: MAX_KMH / 10 + 1 }, (_, i) => i * 10)
-
   return (
     <div className="speedo">
-      <svg viewBox="0 0 120 120" aria-hidden>
-        <path d={arc} className="speedo-track" />
-        <path d={arc} className="speedo-fill" ref={fill} />
-        {ticks.map((t) => {
-          const deg = START + (t / MAX_KMH) * SWEEP
-          const [x1, y1] = polar(deg, 43)
-          const [x2, y2] = polar(deg, 38)
-          const [lx, ly] = polar(deg, 30)
-          return (
-            <g key={t}>
-              <line x1={x1} y1={y1} x2={x2} y2={y2} className="speedo-tick" />
-              {t % 20 === 0 && (
-                <text x={lx} y={ly} className="speedo-label">
-                  {t}
-                </text>
-              )}
-            </g>
-          )
-        })}
-        <g ref={needle} transform={`rotate(${START} 60 60)`}>
-          <line x1="60" y1="60" x2="104" y2="60" className="speedo-needle" />
-        </g>
-        <circle cx="60" cy="60" r="5" className="speedo-hub" />
+      <svg viewBox="0 0 180 180" aria-hidden>
+        <circle cx="90" cy="90" r="88" className="speedo-disc" />
+        {Array.from({ length: BLOCKS }, (_, i) => (
+          <path
+            key={i}
+            ref={(el) => {
+              blocks.current[i] = el
+            }}
+            d={blockPath(i)}
+            className={`speedo-block ${i % 2 ? 'is-chalk' : 'is-red'}`}
+          />
+        ))}
       </svg>
       <div className="speedo-readout">
         <span ref={value}>0</span>

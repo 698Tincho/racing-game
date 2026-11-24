@@ -1,13 +1,14 @@
 import { track } from '../track/layout'
 
-// The kart hall: a floor slab with walls around the circuit.
-// (Still called `board`: it's the diorama base everything sits on.)
-export const BOARD_MARGIN = 9 // floor between the outermost walls and the hall walls, meters
-export const BOARD_THICKNESS = 3
-export const HALL_HEIGHT = 9
+// The site around the circuit: the area the scenery (sheds, paddock, trees)
+// is laid out in. The grass itself runs on to the horizon.
+// (Still called `board`, from when the game was a floating diorama.)
+export const BOARD_MARGIN = 30 // meters around the outermost tyre walls
 
-// Top of the floor. The road is drawn a couple of centimeters above it.
-export const FLOOR_Y = 0
+// Top of the open grass, where everything beside the track stands. The road
+// surface is y = 0, the grass strips on the road tiles are at -0.08, and this
+// sits just under them so the two never flicker.
+export const FLOOR_Y = -0.12
 
 const { minX, maxX, minZ, maxZ } = track.bounds
 export const board = {

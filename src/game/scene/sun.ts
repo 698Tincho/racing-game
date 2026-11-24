@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-// Where the main light comes from. Used by the directional light (shadows)
-// and the sky glow. Indoors it's the ceiling lights: nearly straight down,
-// tilted a little so shadows still read.
-export const SUN_DIRECTION = new THREE.Vector3(0.3, 1, 0.22).normalize()
+// Where the sun is. Used by the directional light (shadows) and the sky glow.
+// Dusk: low over the horizon, so shadows are long, but high enough that they
+// don't stretch across the whole track.
+export const SUN_DIRECTION = new THREE.Vector3(-0.62, 0.46, 0.64).normalize()

@@ -1,19 +1,28 @@
 // One place for the scene's colours, so the whole look can be re-tuned here.
 export const PALETTE = {
-  skyTop: '#4fa8f0',
-  skyHorizon: '#d4ecff',
-  skyBottom: '#c3e2f5', // what you see past the edge of the board
-  sun: '#fff0d4',
-  sunGlow: '#fff4c2',
+  // Dusk: deep indigo overhead, through violet, to a warm orange horizon.
+  skyTop: '#1f2158',
+  skyMid: '#7a4a8c',
+  skyHorizon: '#f39a63',
+  skyBottom: '#6f4f6c', // what you see past the edge of the board
+  sun: '#ffa768',
+  sunGlow: '#ffb478',
 
-  grassLight: '#9ad468',
-  grassMid: '#82c45a',
-  grassDark: '#6aae4c',
+  hemisphereSky: '#8d90d8',
+  hemisphereGround: '#4d4356',
+  lamp: '#ffd59a', // the track's light posts
+
+  grassLight: '#8fca5e',
+  grassMid: '#76b64f',
+  grassDark: '#5e9c42',
+  concrete: '#a9aaa6',
   soil: '#9a6a44',
   soilDark: '#6b4530',
-  cloud: '#ffffff',
   dust: '#efe4cf',
+  tyreSmoke: '#d8d9dd',
+
+  lotLine: '#eceef2',
 } as const
 
 // Fog fades into the horizon colour so far things melt into the sky.
-export const FOG = { color: PALETTE.skyHorizon, near: 120, far: 420 }
+export const FOG = { color: '#c47f72', near: 150, far: 500 }

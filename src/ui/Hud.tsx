@@ -1,8 +1,15 @@
 import { useEffect, useRef } from 'react'
 import { ATTEMPTS, SECTORS, bestOf, formatDelta, formatTime, race, useGame, type SectorTime } from '../game/race/store'
+import { Key, WasdKeys } from './Key'
 import { Speedometer } from './Speedometer'
+import { kartState } from '../game/kartState'
+import { PIT_SPEED } from '../game/track/pitLane'
 
 const LAP_POPUP_SECONDS = 3
+const HELP_SECONDS = 4 // how long the controls stay up after the start
+const PIT_LIMIT_KMH = Math.round(PIT_SPEED * 3.6)
+
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /**
  * In-race overlay. Things that change every frame (timer, speed, countdown,
@@ -25,18 +32,44 @@ export function Hud() {
   const countRef = useRef<HTMLDivElement>(null)
   const wrongRef = useRef<HTMLDivElement>(null)
   const popupRef = useRef<HTMLDivElement>(null)
+  const helpRef = useRef<HTMLDivElement>(null)
+  const statusRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let raf = 0
     let shown = ''
     const tick = () => {
-      const { phase } = useGame.getState()
-      if (timerRef.current) timerRef.current.textContent = formatTime(race.time)
+      const { phase, mode, attempts } = useGame.getState()
+      if (timerRef.current) timerRef.current.textContent = phase === 'outlap' ? 'Out lap' : formatTime(race.time)
+
+      // Pit limiter, and what to do on a qualifying out-lap.
+      if (statusRef.current) {
+        const status = kartState.limiter
+          ? `Pit limiter ${PIT_LIMIT_KMH} km/h`
+          : phase === 'outlap'
+            ? race.leftPits
+              ? 'Out lap: your timed lap starts at the line'
+              : 'Drive out of the pits'
+            : ''
+        if (statusRef.current.textContent !== status) statusRef.current.textContent = status
+        statusRef.current.style.opacity = status ? '1' : '0'
+        statusRef.current.classList.toggle('is-limiter', kartState.limiter)
+      }
       if (wrongRef.current) wrongRef.current.style.opacity = phase === 'racing' && race.wrongWay ? '1' : '0'
       if (popupRef.current) {
         const visible = phase === 'racing' && race.sinceLap < LAP_POPUP_SECONDS
         popupRef.current.style.opacity = visible ? '1' : '0'
         popupRef.current.style.transform = `translateX(-50%) translateY(${visible ? 0 : -8}px)`
+      }
+
+      // The controls show at the start of a session, then get out of the way.
+      if (helpRef.current) {
+        const firstRun = mode === 'practice' || attempts.length === 0
+        const starting =
+          phase === 'countdown' ||
+          (phase === 'outlap' && !race.leftPits) ||
+          (phase === 'racing' && mode === 'practice' && race.sinceLap === Infinity && race.time < HELP_SECONDS)
+        helpRef.current.classList.toggle('is-hidden', !(firstRun && starting))
       }
 
       // 3 / 2 / 1 / GO! — pop each number in as it changes.
@@ -48,7 +81,7 @@ export function Hud() {
         shown = text
         el.textContent = text
         el.classList.toggle('is-go', text === 'GO!')
-        if (text) {
+        if (text && !reducedMotion()) {
           el.animate(
             [
               { transform: 'scale(1.8)', opacity: 0 },
@@ -65,10 +98,12 @@ export function Hud() {
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  const inRace = phase === 'countdown' || phase === 'racing' || phase === 'finished'
+  const inRace = phase === 'countdown' || phase === 'outlap' || phase === 'racing' || phase === 'finished'
   const practice = mode === 'practice'
   const laps = practice ? practiceLaps : attempts
   const best = bestOf(laps)
+  // While waiting after a qualy lap, keep showing the attempt just done.
+  const attempt = phase === 'finished' ? attempts.length : Math.min(attempts.length + 1, ATTEMPTS)
 
   // Practice pop-up: the lap just completed and how it compares to the best before it.
   const last = practiceLaps.at(-1) ?? null
@@ -77,90 +112,79 @@ export function Hud() {
 
   return (
     <div className="hud" style={{ opacity: inRace ? 1 : 0 }}>
-      <div className="hud-top">
-        <div className="hud-lap">
-          <span className="hud-label">{practice ? 'Practice · lap' : 'Qualifying · attempt'}</span>
-          <span className="hud-lap-count">
-            {/* While waiting after a qualy lap, keep showing the attempt just done. */}
-            {practice ? practiceLaps.length + 1 : phase === 'finished' ? attempts.length : Math.min(attempts.length + 1, ATTEMPTS)}
-            {!practice && <small>/{ATTEMPTS}</small>}
+      <div className="hud-tower">
+        <div className="hud-tower-head">
+          <span>{practice ? `Practice lap ${practiceLaps.length + 1}` : `Attempt ${attempt} of ${ATTEMPTS}`}</span>
+          <span className="hud-ghost">
+            <Key>G</Key> Ghost {showGhost ? 'on' : 'off'}
           </span>
         </div>
-
-        <div className="hud-center">
-          <div className="hud-timer" ref={timerRef}>
-            0:00.000
-          </div>
-          <SectorPanel sectors={sectors} lastSectors={lastSectors} last={lastLapTime} best={best} />
-          <div className="hud-popup" ref={popupRef}>
-            <span>{formatTime(last)}</span>
-            {delta !== null && <span className={`tag ${delta < 0 ? 'tag-good' : 'tag-bad'}`}>{formatDelta(delta)}</span>}
-            {last !== null && delta === null && <span className="tag tag-gold">First lap</span>}
-          </div>
+        <div className="hud-timer" ref={timerRef}>
+          0:00.000
         </div>
-
-        <div className="hud-bests">
+        <SectorStrip sectors={sectors} lastSectors={lastSectors} />
+        <dl className="hud-times">
           <div>
-            <span className="hud-label">Record</span>
-            <span>{formatTime(personalBest)}</span>
+            <dt>Last</dt>
+            <dd>{formatTime(lastLapTime)}</dd>
           </div>
-        </div>
+          <div>
+            <dt>Best</dt>
+            <dd>{formatTime(best)}</dd>
+          </div>
+          <div>
+            <dt>Record</dt>
+            <dd>{formatTime(personalBest)}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div className="hud-popup" ref={popupRef}>
+        <span>{formatTime(last)}</span>
+        {delta !== null && <span className={`tag ${delta < 0 ? 'tag-good' : 'tag-bad'}`}>{formatDelta(delta)}</span>}
+        {last !== null && delta === null && <span className="tag tag-gold">First lap</span>}
       </div>
 
       <div className="hud-countdown" ref={countRef} />
+      <div className="hud-status" ref={statusRef} />
       <div className="hud-wrong" ref={wrongRef}>
-        Wrong way!
+        Wrong way
       </div>
 
       <Speedometer />
-      <div className="hud-help">
-        <kbd>W</kbd>
-        <kbd>A</kbd>
-        <kbd>S</kbd>
-        <kbd>D</kbd> drive · <kbd>R</kbd> back on track · <kbd>G</kbd> ghost {showGhost ? 'on' : 'off'} · <kbd>Esc</kbd> {practice ? 'end practice' : 'menu'}
+      <div className="hud-help is-hidden" ref={helpRef}>
+        <span>
+          <WasdKeys /> Drive
+        </span>
+        <span>
+          <Key>R</Key> Back on track
+        </span>
+        <span>
+          <Key>Esc</Key> {practice ? 'End practice' : 'Menu'}
+        </span>
       </div>
     </div>
   )
 }
 
 /**
- * S1 / S2 / S3 / LAST / BEST, like a timing screen. While a lap is running,
- * finished sectors show this lap's times; the rest still show the last lap's,
- * dimmed, so you can compare as you go.
+ * S1 / S2 / S3, like a timing screen. While a lap is running, finished sectors
+ * show this lap's times; the rest still show the last lap's, dimmed, so you
+ * can compare as you go.
  */
-function SectorPanel({
-  sectors,
-  lastSectors,
-  last,
-  best,
-}: {
-  sectors: SectorTime[]
-  lastSectors: SectorTime[]
-  last: number | null
-  best: number | null
-}) {
-  const cells = Array.from({ length: SECTORS }, (_, i) => {
-    const now = sectors[i]
-    if (now) return { text: now.time.toFixed(3), className: `sector-${now.status}` }
-    const before = lastSectors[i]
-    return before ? { text: before.time.toFixed(3), className: 'sector-old' } : { text: '--.---', className: 'sector-old' }
-  })
+function SectorStrip({ sectors, lastSectors }: { sectors: SectorTime[]; lastSectors: SectorTime[] }) {
   return (
-    <div className="sectors">
-      {cells.map((c, i) => (
-        <div key={i}>
-          <span className="hud-label">S{i + 1}</span>
-          <span className={c.className}>{c.text}</span>
-        </div>
-      ))}
-      <div>
-        <span className="hud-label">Last</span>
-        <span>{formatTime(last)}</span>
-      </div>
-      <div>
-        <span className="hud-label">Best</span>
-        <span>{formatTime(best)}</span>
-      </div>
+    <div className="hud-sectors">
+      {Array.from({ length: SECTORS }, (_, i) => {
+        const now = sectors[i]
+        const before = lastSectors[i]
+        return (
+          <div key={i} className={`hud-sector ${now ? `sector-${now.status}` : 'sector-old'}`}>
+            <small>S{i + 1}</small>
+            <span>{now ? now.time.toFixed(3) : before ? before.time.toFixed(3) : '--.---'}</span>
+          </div>
+        )
+      })}
     </div>
   )
 }

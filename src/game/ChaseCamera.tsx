@@ -6,29 +6,47 @@ import { TUNING as T } from './tuning'
 import { frameStep } from './time'
 import { useGame } from './race/store'
 import { board } from './scene/boardSize'
+import { nearestOnTrack, track } from './track/layout'
 
 const desired = new THREE.Vector3()
 const lookAt = new THREE.Vector3()
+const focusWanted = new THREE.Vector3()
 
 const ORBIT_SPEED = 0.06 // rad/s
 const ORBIT_RADIUS = Math.max(board.width, board.depth) * 0.6
 const ORBIT_HEIGHT = Math.max(board.width, board.depth) * 0.45
 
+const PATH_STEP = Math.hypot(track.path[1].x - track.path[0].x, track.path[1].z - track.path[0].z)
+const SAMPLES_AHEAD = Math.max(1, Math.round(T.high.trackAhead / PATH_STEP))
+const HIGH_GLIDE = 14 // how quickly the camera settles on its target
+const FACING_BACKWARDS = 2.2 // radians away from the track direction
+
+const wrapAngle = (a: number) => Math.atan2(Math.sin(a), Math.cos(a))
+const { clamp, lerp } = THREE.MathUtils
+
 /**
- * Racing: follows behind the kart with a little lag, widens the FOV with
- * speed so going fast feels fast, and shakes on wall hits.
- * Menu / results: slowly flies around the whole diorama.
+ * Two views while racing (set by `cameraView` in the store):
+ *   chase — right behind the kart, widening the FOV with speed. The one in use.
+ *   high  — up and to one side with a narrow lens, turning slowly with the
+ *           track, looking ahead and zooming out with speed. Off for now.
+ * Both shake on wall hits. Menu / results: slowly flies around the whole track.
  */
 export function ChaseCamera() {
   const look = useRef(new THREE.Vector3(0, 1, 5))
   const lastTeleport = useRef(-1)
+  const lastView = useRef<string | null>(null)
   const orbitAngle = useRef(0.6)
+  const viewYaw = useRef(0)
+  const focus = useRef(new THREE.Vector3())
+  const distance = useRef<number>(T.high.distanceSlow)
 
   useFrame((state, delta) => {
     const cam = state.camera as THREE.PerspectiveCamera
     const dt = frameStep(delta)
-    const { phase } = useGame.getState()
-    let targetFov = T.baseFov
+    const { phase, viewing, cameraView } = useGame.getState()
+    // Looking around the track: the orbit controls have the camera.
+    if (viewing) return
+    let targetFov: number = T.baseFov
 
     if (phase === 'menu' || phase === 'results') {
       orbitAngle.current += ORBIT_SPEED * dt
@@ -40,20 +58,67 @@ export function ChaseCamera() {
       lastTeleport.current = -1 // cut straight to the kart when the race starts
     } else {
       const { position, yaw, speed } = kartState
-      const fx = Math.sin(yaw)
-      const fz = Math.cos(yaw)
-      desired.set(position.x - fx * T.camDistance, position.y + T.camHeight, position.z - fz * T.camDistance)
-      lookAt.set(position.x + fx * T.camLookAhead, position.y + T.camLookHeight, position.z + fz * T.camLookAhead)
+      const speedK = clamp(Math.abs(speed) / T.maxSpeed, 0, 1)
+      // The kart jumped (new lap, reset): cut straight to it instead of flying over.
+      const cut = kartState.teleports !== lastTeleport.current
+      lastTeleport.current = kartState.teleports
 
-      if (kartState.teleports !== lastTeleport.current) {
-        // The kart jumped (new lap, reset): cut straight to it instead of flying over.
-        lastTeleport.current = kartState.teleports
-        cam.position.copy(desired)
-        look.current.copy(lookAt)
+      if (cameraView === 'high') {
+        const H = T.high
+        const ahead = track.path[(nearestOnTrack(position.x, position.z).index + SAMPLES_AHEAD) % track.path.length]
+        // Follow the track, unless you've turned round and are driving against it.
+        const targetYaw = Math.abs(wrapAngle(yaw - ahead.yaw)) > FACING_BACKWARDS ? yaw : ahead.yaw
+        const switched = lastView.current !== 'high'
+
+        if (cut || switched) viewYaw.current = targetYaw
+        else viewYaw.current += wrapAngle(targetYaw - viewYaw.current) * (1 - Math.exp(-H.turn * dt))
+        if (cut) distance.current = H.distanceSlow
+        else distance.current = lerp(distance.current, lerp(H.distanceSlow, H.distanceFast, speedK), 1 - Math.exp(-H.zoom * dt))
+
+        const lookAhead = lerp(H.lookAheadSlow, H.lookAheadFast, speedK)
+        focusWanted.set(
+          position.x + Math.sin(viewYaw.current) * lookAhead,
+          position.y + 0.4,
+          position.z + Math.cos(viewYaw.current) * lookAhead,
+        )
+        if (cut || switched) focus.current.copy(focusWanted)
+        else focus.current.lerp(focusWanted, 1 - Math.exp(-H.follow * dt))
+
+        const orbit = viewYaw.current + H.side
+        const across = Math.cos(H.pitch) * distance.current
+        desired.set(
+          focus.current.x - Math.sin(orbit) * across,
+          focus.current.y + Math.sin(H.pitch) * distance.current,
+          focus.current.z - Math.cos(orbit) * across,
+        )
+        lookAt.copy(focus.current)
+        kartState.viewFocus.copy(focus.current)
+        targetFov = H.fov
+
+        if (cut) {
+          cam.position.copy(desired)
+          look.current.copy(lookAt)
+        } else {
+          cam.position.lerp(desired, 1 - Math.exp(-HIGH_GLIDE * dt))
+          look.current.lerp(lookAt, 1 - Math.exp(-HIGH_GLIDE * dt))
+        }
       } else {
-        cam.position.lerp(desired, 1 - Math.exp(-T.camFollow * dt))
-        look.current.lerp(lookAt, 1 - Math.exp(-T.camFollow * 2 * dt))
+        const fx = Math.sin(yaw)
+        const fz = Math.cos(yaw)
+        desired.set(position.x - fx * T.camDistance, position.y + T.camHeight, position.z - fz * T.camDistance)
+        lookAt.set(position.x + fx * T.camLookAhead, position.y + T.camLookHeight, position.z + fz * T.camLookAhead)
+        kartState.viewFocus.copy(position)
+
+        if (cut) {
+          cam.position.copy(desired)
+          look.current.copy(lookAt)
+        } else {
+          cam.position.lerp(desired, 1 - Math.exp(-T.camFollow * dt))
+          look.current.lerp(lookAt, 1 - Math.exp(-T.camFollow * 2 * dt))
+        }
+        targetFov += T.speedFov * speedK
       }
+      lastView.current = cameraView
 
       // Wall hit: a quick, fading shake.
       const shake = kartState.impact * kartState.impact * 0.3 + kartState.rumble * 0.02
@@ -62,11 +127,10 @@ export function ChaseCamera() {
         cam.position.y += (Math.random() - 0.5) * shake
         cam.position.z += (Math.random() - 0.5) * shake
       }
-      targetFov += T.speedFov * THREE.MathUtils.clamp(Math.abs(speed) / T.maxSpeed, 0, 1)
     }
 
     cam.lookAt(look.current)
-    cam.fov = THREE.MathUtils.lerp(cam.fov, targetFov, 1 - Math.exp(-4 * dt))
+    cam.fov = lerp(cam.fov, targetFov, 1 - Math.exp(-4 * dt))
     cam.updateProjectionMatrix()
   })
 
