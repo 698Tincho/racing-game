@@ -1,5 +1,5 @@
-import { Suspense, useState } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { Suspense, memo, useCallback, useEffect, useState, type ComponentType } from 'react'
+import { Canvas, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { Environment, KeyboardControls, Lightformer, PerformanceMonitor } from '@react-three/drei'
 import { Physics } from '@react-three/rapier'
@@ -24,6 +24,9 @@ import { PitLaneSurface } from './game/scene/PitLaneSurface'
 import { TrackLights } from './game/scene/TrackLights'
 import { StartLights } from './game/track/StartLights'
 import { FOG, PALETTE } from './game/scene/palette'
+import { expectSteps, type LoadStep } from './game/loading'
+import { Ready } from './game/Ready'
+import { CarShowcase, drawShowcase } from './ui/CarShowcase'
 import { Hud } from './ui/Hud'
 import { Screens } from './ui/Screens'
 import { SoundButton } from './ui/SoundButton'
@@ -66,24 +69,9 @@ export default function App() {
           <Lightformer form="rect" intensity={0.45} color="#4d4356" position={[0, -10, 0]} rotation-x={-Math.PI / 2} scale={[100, 100, 1]} />
           <Lightformer form="circle" intensity={5} color={PALETTE.sun} position={[-16, 12, 17]} scale={7} />
         </Environment>
-        <Suspense fallback={null}>
-          {/* Paused: SimLoop steps it at a fixed rate instead of once per frame. */}
-          <Physics gravity={[0, -20, 0]} timeStep="vary" paused debug={debug}>
-            <SimLoop />
-            <Track />
-            <Kart />
-            <RaceDirector />
-          </Physics>
-          <Props />
-          <PitBuilding />
-          <PitLaneSurface />
-          <ParkingLot />
-          <CarKitDecor />
-          <StartLights />
-          <TrackLights />
-          <Ghost />
-          <TyreSmoke />
-        </Suspense>
+        <Scene />
+        <CarShowcase />
+        <Frame />
         <KartAudio />
         <ChaseCamera />
         <TrackViewer />
@@ -94,4 +82,94 @@ export default function App() {
       <SoundButton />
     </KeyboardControls>
   )
+}
+
+/** Scenery around the track, mounted one per frame once the track is up, so its setup doesn't land all at once. */
+const SCENERY: (LoadStep & { Part: ComponentType })[] = [
+  { id: 'pits', label: 'Opening the pits', Part: PitBuilding },
+  { id: 'parking', label: 'Painting the parking lot', Part: ParkingLot },
+  { id: 'cars', label: 'Parking the cars', Part: CarKitDecor },
+  { id: 'trees', label: 'Planting the trees', Part: Props },
+  { id: 'lights', label: 'Switching on the lights', Part: TrackLights },
+  { id: 'ghost', label: 'Warming up the tyres', Part: Ghost },
+  { id: 'smoke', label: 'Warming up the tyres', Part: TyreSmoke },
+]
+
+// What the loading screen waits for, in order.
+expectSteps([
+  { id: 'car', label: 'Bringing out your car' },
+  { id: 'track', label: 'Laying the track' },
+  ...SCENERY.map(({ id, label }) => ({ id, label })),
+])
+
+/**
+ * The 3D world, in two stages: first the track, physics and your car, then
+ * the scenery around it, while the loading screen is up. (Memoised: nothing
+ * here depends on the canvas resolution, so changing it doesn't rebuild the
+ * world.)
+ */
+const Scene = memo(function Scene() {
+  const [trackUp, setTrackUp] = useState(false)
+  const showTrack = useCallback(() => {
+    performance.mark('track-shown') // (handy for checking load times)
+    setTrackUp(true)
+  }, [])
+  return (
+    <>
+      <Suspense fallback={null}>
+        {/* Paused: SimLoop steps it at a fixed rate instead of once per frame. */}
+        <Physics gravity={[0, -20, 0]} timeStep="vary" paused debug={debug}>
+          <SimLoop />
+          <Track />
+          <Kart />
+          <RaceDirector />
+        </Physics>
+        <PitLaneSurface />
+        <StartLights />
+        <OnShow run={showTrack} />
+        <Ready id="track" />
+      </Suspense>
+      {trackUp && <OneByOne parts={SCENERY} />}
+    </>
+  )
+})
+
+/** Calls `run` once, when it first shows (so, inside a Suspense boundary, once everything there has loaded). */
+function OnShow({ run }: { run: () => void }) {
+  useEffect(run, [run])
+  return null
+}
+
+/** Mounts the parts one per animation frame, each loading on its own and saying when it's in. */
+function OneByOne({ parts }: { parts: typeof SCENERY }) {
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    if (count >= parts.length) return
+    const frame = requestAnimationFrame(() => setCount((n) => n + 1))
+    return () => cancelAnimationFrame(frame)
+  }, [count, parts.length])
+  return (
+    <>
+      {parts.slice(0, count).map(({ id, Part }) => (
+        <Suspense key={id} fallback={null}>
+          <Part />
+          <Ready id={id} />
+        </Suspense>
+      ))}
+    </>
+  )
+}
+
+/**
+ * Renders each frame: the world, then the menu's turntable and shade over it
+ * (see CarShowcase). Taking over rendering is why this runs at priority 1.
+ * (Behind the loading screen it draws too, so each part's first, slowest
+ * frame happens there, as it arrives, rather than all at once after.)
+ */
+function Frame() {
+  useFrame(({ gl, scene, camera }) => {
+    gl.render(scene, camera)
+    drawShowcase(gl, camera)
+  }, 1)
+  return null
 }

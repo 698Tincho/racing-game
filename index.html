@@ -3,10 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kart Race</title>
+    <title>Fastest Lap</title>
+    <!-- The loading screen's colour from the very first paint, before any styles load. -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #000;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- The loading screen, all lights off, until the game's code takes over (src/ui/Loading.tsx draws the same; vite.config.ts fills in the gantry). -->
+      <div class="loading" aria-busy="true">
+        <div class="loading-inner">
+          <div class="gantry"><!-- gantry --></div>
+          <div class="loading-line"><div class="loading-line-fill"></div></div>
+          <p class="loading-status">Loading</p>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

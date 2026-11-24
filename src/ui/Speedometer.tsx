@@ -8,6 +8,8 @@ const START = 150 // degrees, where 0 km/h sits (SVG angles: 0 = right, clockwis
 const SWEEP = 240
 const BLOCK_GAP = 2.4 // degrees between blocks
 const RADIUS = 74
+/** The top of the range, where the gauge turns red. */
+const RED_BLOCKS = 4
 
 const polar = (deg: number, r: number) => {
   const a = (deg * Math.PI) / 180
@@ -21,7 +23,7 @@ const blockPath = (i: number) => {
   return `M ${sx} ${sy} A ${RADIUS} ${RADIUS} 0 0 1 ${ex} ${ey}`
 }
 
-/** Speed as a ring of red and white kerb blocks. Updated straight from the frame loop. */
+/** Speed as a segmented gauge, white rising to red near the top. Updated straight from the frame loop. */
 export function Speedometer() {
   const blocks = useRef<(SVGPathElement | null)[]>([])
   const value = useRef<HTMLSpanElement>(null)
@@ -59,7 +61,7 @@ export function Speedometer() {
               blocks.current[i] = el
             }}
             d={blockPath(i)}
-            className={`speedo-block ${i % 2 ? 'is-chalk' : 'is-red'}`}
+            className={`speedo-block ${i >= BLOCKS - RED_BLOCKS ? 'is-red' : ''}`}
           />
         ))}
       </svg>

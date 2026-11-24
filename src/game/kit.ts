@@ -76,6 +76,15 @@ export function useRacingPiece(name: string) {
 }
 
 /**
+ * Several Racing Kit pieces (see useRacingPiece). One at a time on purpose:
+ * that shares the cache with each model's preload, so nothing loads twice.
+ * (`names` must stay the same between renders.)
+ */
+export function useRacingPieces(names: readonly string[]) {
+  return names.map((name) => useRacingPiece(name))
+}
+
+/**
  * A Racing Kit model tidied up so it's easy to place on its own: centred on
  * x/z and sitting on y = 0. (The kit's files have their origin about half a
  * tile off, for snapping to the road grid.) Don't use the same model with
@@ -100,6 +109,15 @@ useRacingPiece.preload = useRacingModel.preload
 /** A Car Kit model for scenery: lit, centred on x/z and sitting on y = 0. */
 export function useCarKitModel(name: string) {
   const { scene } = useGLTF(carKitModelUrl(name))
+  return tidyCarKit(scene)
+}
+
+/** Several Car Kit models (see useCarKitModel and useRacingPieces). */
+export function useCarKitModels(names: readonly string[]) {
+  return names.map((name) => useCarKitModel(name))
+}
+
+function tidyCarKit(scene: THREE.Group) {
   prepare(scene)
   if (!scene.userData.tidied) {
     scene.userData.tidied = true

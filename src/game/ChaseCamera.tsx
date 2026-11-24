@@ -8,6 +8,9 @@ import { useGame } from './race/store'
 import { board } from './scene/boardSize'
 import { nearestOnTrack, track } from './track/layout'
 
+/** Where the camera is looking right now, so the track view can take over without a jump. */
+export const cameraLook = new THREE.Vector3()
+
 const desired = new THREE.Vector3()
 const lookAt = new THREE.Vector3()
 const focusWanted = new THREE.Vector3()
@@ -43,9 +46,10 @@ export function ChaseCamera() {
   useFrame((state, delta) => {
     const cam = state.camera as THREE.PerspectiveCamera
     const dt = frameStep(delta)
-    const { phase, viewing, cameraView } = useGame.getState()
-    // Looking around the track: the orbit controls have the camera.
-    if (viewing) return
+    const { phase, viewing, leavingMenu, cameraView } = useGame.getState()
+    // Looking around the track: the orbit controls have the camera. While the
+    // menu slides away on the way there, it holds still.
+    if (viewing || leavingMenu) return
     let targetFov: number = T.baseFov
 
     if (phase === 'menu' || phase === 'results') {
@@ -130,6 +134,7 @@ export function ChaseCamera() {
     }
 
     cam.lookAt(look.current)
+    cameraLook.copy(look.current)
     cam.fov = lerp(cam.fov, targetFov, 1 - Math.exp(-4 * dt))
     cam.updateProjectionMatrix()
   })

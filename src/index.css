@@ -2,22 +2,27 @@
   box-sizing: border-box;
 }
 
+/*
+ * Race-broadcast graphics: carbon panels, white type, one signal red, and the
+ * timing colours (purple fastest, green personal best, yellow slower) kept
+ * for times only. The recurring mark is the slanted cut: the menu's edge,
+ * the red tab on each panel, the buttons.
+ */
 :root {
-  --ink: #1d2433;
-  --paper: #ffffff;
-  --accent: #ff5a36;
-  --gold: #ffc531;
-  --good: #2fbf71;
-  --bad: #ff5a5a;
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-  --display: 'Lilita One', system-ui, sans-serif;
-  --body: 'Nunito Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --ui-night: #1d1b49;
-  --ui-asphalt: #2a2140;
-  --ui-kerb: #df3f4a;
-  --ui-chalk: #f6f0f2;
-  --ui-lamp: #ffd59a;
-  --ui-mist: #d5ccdf;
+  --carbon: #111116;
+  --panel: #1a1a21;
+  --panel-glass: rgba(20, 20, 26, 0.9);
+  --raised: #24242d;
+  --line: rgba(244, 244, 246, 0.12);
+  --white: #f4f4f6;
+  --grey: #9d9daa;
+  --red: #e5172f;
+  --red-dark: #a50e20;
+  --purple: #b65cff;
+  --green: #27d567;
+  --yellow: #ffd21f;
+  --slant: 12deg; /* the angle of every cut */
+  --font: 'Exo 2 Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 html,
@@ -27,24 +32,69 @@ body,
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #2b2752;
-  font-family: var(--body);
-  color: var(--paper);
+  background: var(--carbon);
+  font-family: var(--font);
+  color: var(--white);
 }
 
-kbd {
-  display: inline-block;
-  min-width: 22px;
-  margin-right: 3px;
-  padding: 2px 6px;
-  border-radius: 5px;
-  background: rgba(0, 0, 0, 0.35);
-  color: #fff;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  text-align: center;
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 0;
+}
+
+kbd,
+.key-cap {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-width: 26px;
+  height: 24px;
+  margin: 0;
+  padding: 0 7px;
+  border-radius: 3px;
+  background: var(--white);
+  color: var(--carbon);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
   text-shadow: none;
+}
+
+.key-wasd {
+  display: grid;
+  grid-template-columns: repeat(3, 22px);
+  gap: 2px;
+}
+
+.key-wasd .key-cap {
+  min-width: 22px;
+  height: 20px;
+  padding: 0;
+  font-size: 11px;
+}
+
+.key-wasd .key-cap:first-child {
+  grid-column: 2;
+}
+
+.key-wasd .key-cap:nth-child(2) {
+  grid-column: 1;
+}
+
+/* Times: upright, bold, every digit the same width. */
+.hud-timer,
+.hud-sector span,
+.hud-times dd,
+.hud-popup,
+.speedo-readout span,
+.banner-time,
+.results-time,
+.laps,
+.menu-record strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
 }
 
 /* Darker corners, drawn in CSS instead of a post-processing pass. */
@@ -52,7 +102,7 @@ kbd {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse at center, transparent 55%, rgba(20, 30, 50, 0.28) 100%);
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(5, 5, 10, 0.32) 100%);
 }
 
 /* ---------- Race display ---------- */
@@ -60,39 +110,27 @@ kbd {
 .hud {
   position: fixed;
   inset: 0;
-  color: var(--ui-chalk);
+  color: var(--white);
   pointer-events: none;
   transition: opacity 0.3s;
 }
 
 .hud .key-cap {
   min-width: 22px;
-  height: 21px;
-  margin: 0 0 2px;
+  height: 20px;
   padding: 0 5px;
-  border-radius: 5px;
-  box-shadow: 0 2px 0 #a99cba;
-  font-size: 12px;
+  font-size: 11px;
 }
 
-/* Timing tower, flush to the left edge with a strip of kerb. */
+/* Timing tower, flush to the left edge with a red bar. */
 .hud-tower {
   position: absolute;
   top: 18px;
   left: 0;
-  width: min(336px, calc(100vw - 108px));
-  padding: 10px 14px 11px 22px;
-  border-radius: 0 14px 14px 0;
-  background: rgba(42, 33, 64, 0.9);
-  overflow: hidden;
-}
-
-.hud-tower::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 8px;
-  background: repeating-linear-gradient(to bottom, var(--ui-kerb) 0 14px, var(--ui-chalk) 14px 28px);
+  width: min(330px, calc(100vw - 108px));
+  padding: 8px 14px 10px 20px;
+  border-left: 6px solid var(--red);
+  background: var(--panel-glass);
 }
 
 .hud-tower-head {
@@ -100,34 +138,29 @@ kbd {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  font-size: 14px;
-  font-weight: 800;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .hud-ghost {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--ui-mist);
-  font-size: 13px;
-  font-weight: 700;
+  color: var(--grey);
+  font-style: normal;
+  font-weight: 600;
+  text-transform: none;
   white-space: nowrap;
 }
 
-.hud-timer,
-.hud-sector span,
-.hud-times dd,
-.hud-popup,
-.speedo-readout span {
-  font-family: var(--body);
-  font-variant-numeric: tabular-nums;
-  font-weight: 900;
-}
-
 .hud-timer {
-  margin-top: 1px;
+  margin-top: 2px;
   font-size: 44px;
-  line-height: 1.08;
+  line-height: 1.05;
   letter-spacing: -0.01em;
 }
 
@@ -135,59 +168,61 @@ kbd {
 .hud-times {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
+  gap: 3px;
 }
 
 .hud-sectors {
-  margin-top: 5px;
+  margin-top: 4px;
 }
 
 .hud-sector {
   display: grid;
-  gap: 1px;
-  padding: 3px 6px 4px;
-  border-top: 3px solid var(--sector, rgba(246, 240, 242, 0.26));
-  background: rgba(246, 240, 242, 0.07);
+  gap: 0;
+  padding: 3px 7px 4px;
+  border-bottom: 3px solid var(--sector, var(--line));
+  background: var(--raised);
 }
 
 .hud-sector small,
 .hud-times dt {
-  color: var(--ui-mist);
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.2;
+  color: var(--grey);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .hud-sector span {
   color: var(--sector, inherit);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.2;
 }
 
 .sector-purple {
-  --sector: #d49bff;
+  --sector: var(--purple);
 }
 
 .sector-green {
-  --sector: #5ee07a;
+  --sector: var(--green);
 }
 
 .sector-yellow {
-  --sector: #ffd23f;
+  --sector: var(--yellow);
 }
 
 .sector-old span {
-  opacity: 0.62;
+  opacity: 0.55;
 }
 
 .hud-times {
   margin: 7px 0 0;
-  padding: 0 6px;
+  padding: 0 7px;
 }
 
 .hud-times dd {
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.25;
 }
 
@@ -198,19 +233,29 @@ kbd {
   left: 50%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  border-radius: 12px;
-  background: rgba(42, 33, 64, 0.92);
-  font-size: 24px;
+  gap: 12px;
+  padding: 6px 16px 6px 20px;
+  background: var(--panel-glass);
+  font-size: 26px;
   white-space: nowrap;
   opacity: 0;
-  transition: opacity 0.25s, transform 0.25s;
+  transition:
+    opacity 0.25s,
+    transform 0.25s;
+}
+
+.hud-popup::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 -4px;
+  width: 8px;
+  background: var(--red);
+  transform: skewX(calc(var(--slant) * -1));
 }
 
 .hud-popup .tag {
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .hud-countdown {
@@ -218,35 +263,35 @@ kbd {
   top: 35%;
   right: 0;
   left: 0;
-  color: var(--ui-chalk);
-  font-family: var(--display);
-  font-size: clamp(72px, 15vh, 124px);
+  color: var(--white);
+  font-size: clamp(80px, 16vh, 136px);
+  font-weight: 800;
   line-height: 1;
   text-align: center;
-  -webkit-text-stroke: 7px var(--ui-asphalt);
+  -webkit-text-stroke: 8px var(--carbon);
   paint-order: stroke fill;
 }
 
 .hud-countdown.is-go {
-  color: var(--ui-lamp);
+  color: var(--green);
 }
 
 .hud-wrong {
   position: absolute;
   top: 24%;
   left: 50%;
-  padding: 7px 20px;
-  border-radius: 10px;
-  background: var(--ui-kerb);
-  font-family: var(--display);
-  font-size: 25px;
+  padding: 6px 26px;
+  background: var(--red);
+  font-size: 24px;
+  font-weight: 700;
+  text-transform: uppercase;
   white-space: nowrap;
   opacity: 0;
-  transform: translateX(-50%);
+  transform: translateX(-50%) skewX(calc(var(--slant) * -1));
   transition: opacity 0.2s;
 }
 
-/* Speed: a ring of kerb blocks that light up as you accelerate. */
+/* Speed: a segmented gauge, white rising to red at the top end. */
 .speedo {
   position: absolute;
   right: 18px;
@@ -262,21 +307,21 @@ kbd {
 }
 
 .speedo-disc {
-  fill: rgba(42, 33, 64, 0.9);
+  fill: var(--panel-glass);
 }
 
 .speedo-block {
   fill: none;
-  stroke: rgba(246, 240, 242, 0.17);
-  stroke-width: 12;
+  stroke: rgba(244, 244, 246, 0.14);
+  stroke-width: 11;
+}
+
+.speedo-block.is-lit {
+  stroke: var(--white);
 }
 
 .speedo-block.is-lit.is-red {
-  stroke: var(--ui-kerb);
-}
-
-.speedo-block.is-lit.is-chalk {
-  stroke: var(--ui-chalk);
+  stroke: var(--red);
 }
 
 .speedo-readout {
@@ -289,13 +334,15 @@ kbd {
 }
 
 .speedo-readout span {
-  font-size: clamp(38px, 7.2vh, 54px);
+  font-size: clamp(40px, 7.4vh, 56px);
 }
 
 .speedo-readout small {
-  color: var(--ui-mist);
-  font-size: 13px;
-  font-weight: 800;
+  color: var(--grey);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 /* Controls: up for the start, then they fade away. */
@@ -308,13 +355,14 @@ kbd {
   align-items: center;
   gap: 8px 18px;
   max-width: calc(100% - 220px);
-  padding: 9px 14px;
-  border-radius: 12px;
-  background: rgba(42, 33, 64, 0.88);
-  color: var(--ui-mist);
+  padding: 8px 14px;
+  background: var(--panel-glass);
+  color: var(--grey);
   font-size: 13px;
-  font-weight: 700;
-  transition: opacity 0.45s, transform 0.45s;
+  font-weight: 600;
+  transition:
+    opacity 0.45s,
+    transform 0.45s;
 }
 
 .hud-help > span {
@@ -328,6 +376,30 @@ kbd {
   transform: translateY(8px);
 }
 
+/* Pit limiter and out-lap prompts, bottom centre. */
+.hud-status {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  padding: 7px 18px;
+  border-left: 5px solid var(--red);
+  background: var(--panel-glass);
+  color: var(--white);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-50%);
+  transition: opacity 0.2s;
+}
+
+/* The limiter in the colour pit lanes use for it. */
+.hud-status.is-limiter {
+  border-left-color: var(--carbon);
+  background: var(--yellow);
+  color: var(--carbon);
+}
+
 @media (max-width: 860px) {
   .hud-popup {
     top: 208px;
@@ -335,6 +407,11 @@ kbd {
 
   .hud-wrong {
     top: 268px;
+  }
+
+  .hud-status {
+    bottom: auto;
+    top: 320px;
   }
 }
 
@@ -361,120 +438,83 @@ kbd {
 }
 
 .screen-dim {
-  background: radial-gradient(ellipse at center, rgba(20, 40, 70, 0.08), rgba(20, 40, 70, 0.38));
+  background: rgba(8, 8, 12, 0.55);
   pointer-events: auto;
-}
-
-.card {
-  width: min(420px, 100%);
-  padding: 32px 32px 28px;
-  border-radius: 24px;
-  background: var(--paper);
-  color: var(--ink);
-  text-align: center;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
-}
-
-.card h1 {
-  font-family: var(--display);
-  margin: 4px 0 12px;
-  font-size: 52px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  line-height: 1;
 }
 
 .eyebrow {
   margin: 0;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
-.rules {
-  margin: 0 0 16px;
-  line-height: 1.5;
-  color: #4a5366;
-}
-
-.record {
-  margin: 16px 0;
-  color: #4a5366;
-}
-
-.record strong {
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-
-.actions {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
-
-button {
-  font: inherit;
-  cursor: pointer;
-  border: 0;
-}
-
-.cta {
-  padding: 14px 28px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 18px;
-  font-weight: 800;
-  box-shadow: 0 4px 0 #c63d1f;
-  transition: transform 0.1s;
-}
-
-.cta:hover {
-  transform: translateY(-1px);
-}
-
-.cta:active {
-  transform: translateY(2px);
-  box-shadow: 0 2px 0 #c63d1f;
-}
-
-.cta kbd {
-  margin-left: 6px;
-  background: rgba(255, 255, 255, 0.25);
-  color: #fff;
-}
-
-.ghost {
-  padding: 14px 22px;
-  border-radius: 999px;
-  background: #eef0f4;
-  color: var(--ink);
-  font-size: 18px;
+  color: var(--grey);
+  font-size: 14px;
   font-weight: 700;
 }
 
+/* Buttons: slanted plates. The text stays upright. */
+.cta,
+.ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 11px 26px;
+  border-radius: 0;
+  color: var(--white);
+  font-size: 17px;
+  font-weight: 700;
+  text-transform: uppercase;
+  clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+  transition:
+    background 0.12s,
+    transform 0.08s;
+}
+
+.cta {
+  background: var(--red);
+}
+
+.cta:hover {
+  background: #f02a41;
+}
+
+.ghost {
+  background: var(--raised);
+}
+
+.ghost:hover {
+  background: #30303b;
+}
+
+.cta:active,
+.ghost:active {
+  transform: translateY(1px);
+}
+
+.cta kbd {
+  font-style: normal;
+}
+
+/* Qualy: the lap just done, like a caption on the broadcast. */
 .banner {
-  padding: 18px 36px 20px;
-  border-radius: 24px;
-  background: rgba(15, 20, 30, 0.55);
-  text-align: center;
-  text-shadow: var(--shadow);
+  position: relative;
+  min-width: min(380px, 100%);
+  padding: 14px 30px 18px 34px;
+  background: var(--panel-glass);
+  text-align: left;
   animation: pop 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.banner .eyebrow {
-  color: var(--gold);
+.banner::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 -5px;
+  width: 10px;
+  background: var(--red);
+  transform: skewX(calc(var(--slant) * -1));
 }
 
 .banner-time {
-  font-family: var(--display);
-  margin: 4px 0;
-  font-size: 72px;
-  font-weight: 900;
-  font-variant-numeric: tabular-nums;
+  margin: 0 0 6px;
+  font-size: 68px;
   line-height: 1;
 }
 
@@ -483,77 +523,117 @@ button {
 }
 
 .banner-cta {
-  display: block;
-  margin: 16px auto 0;
-  text-shadow: none;
-  font-family: var(--body);
+  display: flex;
+  margin-top: 16px;
 }
 
 .banner-next {
   margin: 10px 0 0;
+  color: var(--grey);
   font-size: 14px;
-  opacity: 0.8;
 }
 
+/* Time deltas and records, in the timing colours. */
 .tag {
   display: inline-block;
   margin: 6px 0 0;
-  padding: 4px 14px;
-  border-radius: 999px;
-  font-weight: 900;
+  padding: 2px 10px;
+  font-size: 15px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  text-shadow: none;
 }
 
 .tag-gold {
-  background: var(--gold);
-  color: var(--ink);
+  background: var(--purple);
+  color: var(--white);
 }
 
 .tag-good {
-  background: var(--good);
-  color: #fff;
+  background: var(--green);
+  color: var(--carbon);
 }
 
 .tag-bad {
-  background: var(--bad);
-  color: #fff;
+  background: var(--yellow);
+  color: var(--carbon);
 }
 
-.results-time {
-  font-variant-numeric: tabular-nums;
+/* Qualy results: a timing sheet. */
+.card {
+  position: relative;
+  width: min(440px, 100%);
+  padding: 22px 28px 26px 32px;
+  background: var(--panel);
+  text-align: left;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 22px;
+  left: -5px;
+  width: 10px;
+  height: 64px;
+  background: var(--red);
+  transform: skewX(calc(var(--slant) * -1));
+}
+
+.card h1 {
+  margin: 0 0 10px;
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .laps {
-  margin: 18px 0 0;
+  margin: 16px 0 0;
   padding: 0;
   list-style: none;
-  font-variant-numeric: tabular-nums;
+  border-top: 1px solid var(--line);
 }
 
 .laps li {
   display: flex;
   justify-content: space-between;
-  padding: 10px 14px;
-  border-radius: 12px;
-  font-weight: 700;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 17px;
 }
 
-.laps li + li {
-  margin-top: 4px;
+.laps li span:first-child {
+  color: var(--grey);
+  font-weight: 600;
 }
 
 .lap-practice {
-  color: #8a91a1;
+  color: var(--grey);
 }
 
+/* The best lap: purple, as on a timing screen. */
 .lap-best {
-  background: #fff4d1;
+  background: rgba(182, 92, 255, 0.16);
+  color: var(--purple);
+}
+
+.record {
+  margin: 16px 0;
+  color: var(--grey);
+}
+
+.record strong {
+  color: var(--white);
+  font-variant-numeric: tabular-nums;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
 }
 
 @keyframes pop {
   from {
-    transform: scale(0.85);
+    transform: translateX(-16px);
     opacity: 0;
   }
 }
@@ -564,24 +644,18 @@ button {
   position: fixed;
   top: 20px;
   left: 20px;
-  width: 240px;
-  padding: 18px 20px;
-  border-radius: 20px;
-  background: rgba(15, 20, 30, 0.72);
-  text-shadow: var(--shadow);
+  width: 250px;
+  padding: 14px 18px 16px;
+  border-left: 6px solid var(--red);
+  background: var(--panel-glass);
 }
 
 .garage-ui h1 {
-  font-family: var(--display);
   margin: 0 0 12px;
-  font-size: 40px;
-  font-weight: 400;
+  font-size: 38px;
+  font-weight: 700;
   line-height: 1;
-}
-
-.garage-ui .eyebrow {
-  margin: 0;
-  color: var(--gold);
+  text-transform: uppercase;
 }
 
 .garage-views {
@@ -592,18 +666,15 @@ button {
 }
 
 .garage-views button {
-  padding: 6px 12px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-  font: 700 13px var(--body);
-  cursor: pointer;
+  padding: 5px 12px;
+  background: var(--raised);
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .garage-views button.is-on {
-  background: var(--gold);
-  color: var(--ink);
+  background: var(--red);
 }
 
 .garage-row {
@@ -612,25 +683,24 @@ button {
   gap: 10px;
   margin: 8px 0;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .garage-row input[type='range'] {
   flex: 1;
-  accent-color: var(--gold);
+  accent-color: var(--red);
 }
 
 .garage-help {
   margin: 12px 0 4px;
+  color: var(--grey);
   font-size: 12px;
-  opacity: 0.7;
 }
 
 .garage-back {
-  color: var(--gold);
+  color: var(--white);
   font-size: 14px;
   font-weight: 700;
-  text-decoration: none;
 }
 
 /* While viewing the track: just a hint and a way back, at the bottom. */
@@ -638,47 +708,46 @@ button {
   position: fixed;
   left: 50%;
   bottom: 24px;
-  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 10px 12px 10px 20px;
-  border-radius: 999px;
-  background: rgba(15, 20, 30, 0.6);
-  color: #fff;
-  font-weight: 700;
+  padding: 8px 10px 8px 20px;
+  border-left: 5px solid var(--red);
+  background: var(--panel-glass);
+  color: var(--grey);
   font-size: 14px;
+  font-weight: 600;
   white-space: nowrap;
   pointer-events: auto;
+  transform: translateX(-50%);
 }
 
 .viewing .cta {
-  padding: 10px 20px;
+  padding: 8px 20px;
   font-size: 15px;
 }
 
-/* Sound on/off: bottom left, just above the driving help. */
+/* Sound on/off, top right on every screen. */
 .sound-toggle {
   position: fixed;
   top: 18px;
   right: 20px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 40px;
+  gap: 8px;
+  min-height: 38px;
   padding: 6px 8px 6px 11px;
-  border-radius: 999px;
-  background: rgba(42, 33, 64, 0.9);
-  color: #fff;
+  background: var(--panel-glass);
+  color: var(--white);
   transition: background 0.15s;
 }
 
 .sound-toggle:hover {
-  background: rgba(42, 33, 64, 1);
+  background: var(--raised);
 }
 
 .sound-toggle:focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--white);
   outline-offset: 2px;
 }
 
@@ -704,7 +773,22 @@ button {
   display: grid;
   grid-template-columns: clamp(470px, 44vw, 680px) minmax(0, 1fr);
   overflow: hidden;
-  color: var(--ui-chalk);
+  isolation: isolate;
+  color: var(--white);
+}
+
+/*
+ * The shade over the whole screen is drawn by the 3D canvas, under the car
+ * (CarShowcase), so it doesn't dim it. This empty layer only keeps its fade
+ * in and out, which the canvas reads.
+ */
+.menu::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  animation: menu-fade 0.55s ease both;
 }
 
 .menu-panel {
@@ -722,6 +806,53 @@ button {
   }
 }
 
+@keyframes menu-arrive-right {
+  from {
+    transform: translateX(56px);
+    opacity: 0;
+  }
+}
+
+@keyframes menu-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* "View the track": the same moves in reverse, the panel out to the left and the car to the right. */
+@keyframes menu-leave-left {
+  to {
+    transform: translateX(-56px);
+    opacity: 0;
+  }
+}
+
+@keyframes menu-leave-right {
+  to {
+    transform: translateX(56px);
+    opacity: 0;
+  }
+}
+
+@keyframes menu-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+.menu.is-leaving .menu-panel {
+  animation: menu-leave-left 0.4s cubic-bezier(0.6, 0, 0.8, 0.2) both;
+}
+
+.menu.is-leaving .menu-stage {
+  animation: menu-leave-right 0.4s cubic-bezier(0.6, 0, 0.8, 0.2) both;
+}
+
+.menu.is-leaving::before {
+  animation: menu-fade-out 0.4s ease both;
+}
+
+/* The panel's edge: a slanted cut with a red stripe along it. */
 .menu-edge {
   position: absolute;
   inset: 0;
@@ -731,69 +862,42 @@ button {
 }
 
 .menu-edge-fill {
-  fill: var(--ui-asphalt);
+  fill: var(--carbon);
 }
 
-.menu-edge-chalk,
-.menu-edge-red {
-  fill: none;
-  stroke-width: 22px;
-  vector-effect: non-scaling-stroke;
-}
-
-.menu-edge-chalk {
-  stroke: var(--ui-chalk);
-}
-
-.menu-edge-red {
-  stroke: var(--ui-kerb);
-  stroke-dasharray: 34 34;
+.menu-edge-stripe {
+  fill: var(--red);
 }
 
 .menu-content {
   position: relative;
   display: grid;
-  gap: clamp(10px, 2.2vh, 22px);
-  width: min(470px, 74%);
+  gap: clamp(18px, 3.4vh, 34px);
+  width: min(460px, 74%);
   margin-left: clamp(30px, 4.6vw, 76px);
 }
 
+.menu-head {
+  display: grid;
+  justify-items: start;
+  gap: clamp(12px, 2vh, 18px);
+}
+
 .menu-title {
-  margin: 0 0 clamp(2px, 1vh, 10px);
-  font-family: var(--display);
-  font-size: clamp(58px, min(8.4vw, 16.5vh), 132px);
-  font-weight: 400;
-  line-height: 0.86;
+  margin: 0;
+  font-size: clamp(56px, min(8vw, 15.5vh), 124px);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
 }
 
 .menu-title span {
   display: block;
 }
 
-.menu-title span:last-child {
-  margin-left: 0.48em;
-}
-
-.key-cap {
-  display: inline-grid;
-  flex: none;
-  place-items: center;
-  min-width: 28px;
-  height: 27px;
-  margin: 0 0 3px;
-  padding: 0 7px;
-  border-radius: 7px;
-  background: var(--ui-chalk);
-  box-shadow: 0 3px 0 #a99cba;
-  color: var(--ui-asphalt);
-  font-family: var(--display);
-  font-size: 14px;
-  font-weight: 400;
-}
-
 .menu-actions {
   display: grid;
-  gap: 11px;
+  gap: 8px;
 }
 
 .menu-action {
@@ -802,76 +906,95 @@ button {
   justify-content: space-between;
   gap: 16px;
   width: 100%;
-  padding: clamp(8px, 1.5vh, 13px) 16px;
-  border-radius: 13px;
-  background: rgba(246, 240, 242, 0.1);
-  color: var(--ui-chalk);
+  padding: clamp(9px, 1.5vh, 13px) 22px clamp(9px, 1.5vh, 13px) 26px;
+  background: var(--raised);
+  color: var(--white);
   text-align: left;
-  transition: background 0.12s, transform 0.08s, box-shadow 0.08s;
+  clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
+  transition:
+    background 0.12s,
+    transform 0.08s;
 }
 
 .menu-action:hover {
-  background: rgba(246, 240, 242, 0.17);
+  background: #2e2e38;
 }
 
 .menu-action:active {
-  transform: translateY(2px);
+  transform: translateY(1px);
 }
 
 .menu-action-start {
-  background: var(--ui-kerb);
-  box-shadow: 0 5px 0 #93242f;
+  background: var(--red);
 }
 
 .menu-action-start:hover {
-  background: #eb4c56;
-}
-
-.menu-action-start:active {
-  box-shadow: 0 3px 0 #93242f;
+  background: #f02a41;
 }
 
 .menu-action-text {
   display: grid;
-  gap: 1px;
+  gap: 0;
 }
 
 .menu-action-text strong {
-  font-family: var(--display);
-  font-size: clamp(21px, 3.3vh, 27px);
-  font-weight: 400;
+  font-size: clamp(22px, 3.4vh, 28px);
+  font-weight: 800;
   line-height: 1.1;
+  text-transform: uppercase;
 }
 
 .menu-action-text small {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 1.3;
+  opacity: 0.85;
 }
 
+/*
+ * Your record as the broadcast's "fastest lap" caption: a purple tab, then the
+ * time. It's the one place purple appears on the menu, because it's a time.
+ */
 .menu-record {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  align-items: stretch;
   margin: 0;
-  color: var(--ui-mist);
-  font-size: 15px;
-  font-weight: 700;
+  background: var(--raised);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
 }
 
-.menu-record strong {
-  color: var(--ui-lamp);
-  font-family: var(--display);
-  font-size: 26px;
-  font-weight: 400;
-  font-variant-numeric: tabular-nums;
+.menu-record-chip {
+  display: grid;
+  place-items: center;
+  padding: 6px 22px 6px 14px;
+  background: var(--purple);
+  color: var(--white);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+}
+
+.menu-record-time {
+  padding: 2px 26px 2px 12px;
+  color: var(--purple);
+  font-size: 28px;
+  line-height: 1.15;
+}
+
+.menu-record-empty {
+  align-self: center;
+  padding: 6px 26px 6px 12px;
+  color: var(--grey);
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .menu-links {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 20px;
+  gap: 4px 22px;
 }
 
 .menu-link {
@@ -881,57 +1004,37 @@ button {
   min-height: 38px;
   padding: 0;
   background: none;
-  color: var(--ui-chalk);
+  color: var(--white);
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   text-decoration: underline;
-  text-decoration-color: rgba(246, 240, 242, 0.4);
+  text-decoration-color: rgba(244, 244, 246, 0.35);
   text-decoration-thickness: 2px;
-  text-underline-offset: 4px;
+  text-underline-offset: 5px;
 }
 
 .menu-link:hover {
-  color: var(--ui-lamp);
-  text-decoration-color: currentColor;
+  text-decoration-color: var(--red);
 }
 
+/* How to drive: a quiet footer, pinned to the bottom of the panel. */
 .menu-help {
+  position: absolute;
+  bottom: clamp(18px, 3.6vh, 34px);
+  left: clamp(30px, 4.6vw, 76px);
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px 22px;
-  color: var(--ui-mist);
+  align-items: center;
+  gap: 8px 24px;
+  color: var(--grey);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .menu-help-item {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-}
-
-.key-wasd {
-  display: grid;
-  grid-template-columns: repeat(3, 24px);
-  gap: 2px;
-}
-
-.key-wasd .key-cap {
-  min-width: 24px;
-  height: 22px;
-  padding: 0;
-  border-radius: 5px;
-  box-shadow: 0 2px 0 #a99cba;
-  font-size: 12px;
-}
-
-.key-wasd .key-cap:first-child {
-  grid-column: 2;
-}
-
-.key-wasd .key-cap:nth-child(2) {
-  grid-column: 1;
 }
 
 .menu-stage {
@@ -941,7 +1044,7 @@ button {
   min-width: 0;
   min-height: 0;
   padding-bottom: clamp(14px, 3vh, 30px);
-  background: linear-gradient(to top, rgba(29, 27, 73, 0.9), rgba(29, 27, 73, 0.42) 52%, rgba(29, 27, 73, 0.2));
+  animation: menu-arrive-right 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .menu-showcase {
@@ -958,19 +1061,20 @@ button {
 
 .menu-car-name {
   margin: 0;
-  font-family: var(--display);
-  font-size: clamp(25px, 4.3vh, 38px);
+  font-size: clamp(26px, 4.4vh, 38px);
+  font-weight: 800;
   line-height: 1;
+  text-transform: uppercase;
 }
 
 .menu-grid {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding-bottom: 12px;
+  gap: 10px;
+  padding-bottom: 8px;
 }
 
-/* Painted like the boxes on the starting grid: open at the back, staggered. */
+/* Picking a car: square plates, the chosen one underlined in red. */
 .menu-slot {
   position: relative;
   display: grid;
@@ -978,24 +1082,20 @@ button {
   width: clamp(72px, 12vh, 88px);
   aspect-ratio: 1;
   padding: 4px;
-  border: solid rgba(246, 240, 242, 0.62);
-  border-width: 4px 4px 0;
-  border-radius: 3px 3px 0 0;
-  background: rgba(42, 33, 64, 0.52);
-  transition: border-color 0.12s, background 0.12s;
-}
-
-.menu-slot:nth-child(even) {
-  transform: translateY(12px);
+  border-bottom: 4px solid transparent;
+  background: var(--panel-glass);
+  transition:
+    border-color 0.12s,
+    background 0.12s;
 }
 
 .menu-slot:hover {
-  border-color: var(--ui-chalk);
+  background: var(--raised);
 }
 
 .menu-slot.is-on {
-  border-color: var(--ui-lamp);
-  background: rgba(255, 213, 154, 0.2);
+  border-bottom-color: var(--red);
+  background: var(--raised);
 }
 
 .menu-slot img {
@@ -1006,26 +1106,32 @@ button {
 .menu-slot .key-cap {
   position: absolute;
   right: 3px;
-  bottom: 2px;
-  min-width: 20px;
-  height: 20px;
+  bottom: 3px;
+  min-width: 18px;
+  height: 18px;
   padding: 0 4px;
-  border-radius: 5px;
-  box-shadow: 0 2px 0 #a99cba;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .menu-car-note {
   margin: 0;
-  color: var(--ui-mist);
+  color: var(--grey);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .menu button:focus-visible,
-.menu a:focus-visible {
-  outline: 3px solid var(--ui-lamp);
+.menu a:focus-visible,
+.screen button:focus-visible {
+  outline: 3px solid var(--white);
   outline-offset: 3px;
+}
+
+/* Short screens: no room for the footer (the race display shows the keys at the start anyway). */
+@media (max-height: 620px) and (min-width: 861px) {
+  .menu-help {
+    display: none;
+  }
 }
 
 @media (max-width: 860px) {
@@ -1033,22 +1139,28 @@ button {
     display: flex;
     flex-direction: column;
     overflow-y: auto;
-    background: var(--ui-asphalt);
   }
 
+  /* The car shows through the top (the canvas draws it); the rest is solid. */
   .menu-stage {
     order: -1;
     flex: none;
     grid-template-rows: 34svh auto;
-    padding-bottom: 18px;
-    background: linear-gradient(to bottom, rgba(29, 27, 73, 0.2), var(--ui-night));
+    padding-bottom: 0;
+    animation: none;
+  }
+
+  .menu-garage {
+    padding: 8px 0 18px;
+    background: linear-gradient(to bottom, transparent, var(--carbon) 40%);
   }
 
   .menu-panel {
     flex: none;
+    flex-direction: column;
     padding: 24px 16px 28px;
-    border-top: 12px solid;
-    border-image: repeating-linear-gradient(90deg, var(--ui-kerb) 0 30px, var(--ui-chalk) 30px 60px) 12;
+    border-top: 6px solid var(--red);
+    background: var(--carbon);
     animation: none;
   }
 
@@ -1059,11 +1171,17 @@ button {
   .menu-content {
     width: min(100%, 520px);
     margin: 0 auto;
-    gap: 16px;
+    gap: 22px;
+  }
+
+  .menu-help {
+    position: static;
+    width: min(100%, 520px);
+    margin: 26px auto 0;
   }
 
   .menu-title {
-    font-size: clamp(58px, 18vw, 92px);
+    font-size: clamp(60px, 19vw, 96px);
   }
 
   .menu-slot {
@@ -1072,7 +1190,9 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .menu-panel {
+  .menu::before,
+  .menu-panel,
+  .menu-stage {
     animation: none;
   }
 
@@ -1082,31 +1202,4 @@ button {
   }
 }
 
-/* Pit limiter and out-lap prompts, bottom centre. */
-.hud-status {
-  position: absolute;
-  bottom: 22px;
-  left: 50%;
-  padding: 8px 16px;
-  border-radius: 10px;
-  background: rgba(42, 33, 64, 0.92);
-  color: var(--ui-chalk);
-  font-size: 15px;
-  font-weight: 800;
-  white-space: nowrap;
-  opacity: 0;
-  transform: translateX(-50%);
-  transition: opacity 0.2s;
-}
-
-.hud-status.is-limiter {
-  background: var(--ui-lamp);
-  color: var(--ui-asphalt);
-}
-
-@media (max-width: 860px) {
-  .hud-status {
-    bottom: auto;
-    top: 320px;
-  }
-}
+/* The loading screen's styles are in src/ui/loading.css, inlined into the page itself (see vite.config.ts). */

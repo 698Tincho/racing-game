@@ -1,10 +1,10 @@
 import { useLayoutEffect, useMemo, useRef } from 'react'
-import { Clone } from '@react-three/drei'
 import * as THREE from 'three'
 import { CAR_SCALE } from '../cars'
-import { useCarKitModel } from '../kit'
+import { useCarKitModel, useCarKitModels } from '../kit'
+import { mergeParts, partsOf, type StaticPart } from './mergeStatic'
 import { FLOOR_Y } from './boardSize'
-import { PARKED_VEHICLES, PART_MODELS, TIRE_MODELS, carKitScenery, type ParkedVehicle, type PartPlacement, type TirePlacement } from './carKitScenery'
+import { PARKED_VEHICLES, PART_MODELS, TIRE_MODELS, carKitScenery, type TirePlacement } from './carKitScenery'
 
 const TIRE_SCALE = CAR_SCALE
 
@@ -17,36 +17,50 @@ export function CarKitDecor() {
   }, [])
   return (
     <>
-      {carKitScenery.vehicles.map((v, i) => (
-        <Vehicle key={`${v.model}-${i}`} vehicle={v} />
-      ))}
+      <ParkedThings />
       {byModel.map(([model, placements]) => (
         <Tires key={model} model={model} placements={placements} />
-      ))}
-      {carKitScenery.cones.map((cone, i) => (
-        <Cone key={i} x={cone.x} z={cone.z} />
-      ))}
-      {carKitScenery.parts.map((part, i) => (
-        <Part key={i} part={part} />
       ))}
     </>
   )
 }
 
-function Cone({ x, z }: { x: number; z: number }) {
-  const scene = useCarKitModel('cone')
-  return <Clone object={scene} position={[x, FLOOR_Y, z]} scale={CAR_SCALE} />
-}
+/** Every model that stands still: vehicles, spare parts and cones. */
+const PARKED_MODELS = [...new Set([...PARKED_VEHICLES, ...PART_MODELS, 'cone'])]
 
-function Part({ part: p }: { part: PartPlacement }) {
-  const scene = useCarKitModel(p.model)
-  return <Clone object={scene} position={[p.x, FLOOR_Y, p.z]} rotation={[0, p.yaw, 0]} scale={CAR_SCALE} castShadow receiveShadow />
+/**
+ * The vehicles, parts and cones never move, so they're baked into one mesh
+ * per material: the whole lot draws in a call or two. Built once.
+ */
+function ParkedThings() {
+  const scenes = useCarKitModels(PARKED_MODELS)
+  const meshes = useMemo(() => {
+    if (parkedCache) return parkedCache
+    const byName = new Map(PARKED_MODELS.map((name, i) => [name, scenes[i]]))
+    const place = (x: number, y: number, z: number, yaw: number, scale: number) =>
+      new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(UP, yaw), new THREE.Vector3(scale, scale, scale))
+    const parts: StaticPart[] = [
+      ...carKitScenery.vehicles.flatMap((v) => partsOf(byName.get(v.model)!, place(v.x, FLOOR_Y + v.lift, v.z, v.yaw, v.scale))),
+      ...carKitScenery.parts.flatMap((p) => partsOf(byName.get(p.model)!, place(p.x, FLOOR_Y, p.z, p.yaw, CAR_SCALE))),
+      ...carKitScenery.cones.flatMap((c) => partsOf(byName.get('cone')!, place(c.x, FLOOR_Y, c.z, 0, CAR_SCALE))),
+    ]
+    // The kit's models all share one texture, so one material per kind will do.
+    parkedCache = mergeParts(parts, (m) => `${m.name}|${m.transparent}`)
+    for (const mesh of parkedCache) {
+      mesh.castShadow = true
+      mesh.receiveShadow = true
+    }
+    return parkedCache
+  }, [scenes])
+  return (
+    <>
+      {meshes.map((mesh) => (
+        <primitive key={mesh.uuid} object={mesh} />
+      ))}
+    </>
+  )
 }
-
-function Vehicle({ vehicle: v }: { vehicle: ParkedVehicle }) {
-  const scene = useCarKitModel(v.model)
-  return <Clone object={scene} position={[v.x, FLOOR_Y + v.lift, v.z]} rotation={[0, v.yaw, 0]} scale={v.scale} />
-}
+let parkedCache: THREE.Mesh[] | null = null
 
 /** Every copy of one tyre model, as one instanced mesh per part. */
 function Tires({ model, placements }: { model: string; placements: TirePlacement[] }) {

@@ -1,27 +1,51 @@
-import type { MouseEvent } from 'react'
+import type { AnimationEvent, MouseEvent } from 'react'
 import { CARS, carPreviewUrl } from '../game/cars'
 import { ATTEMPTS, formatTime, useGame } from '../game/race/store'
-import { CarShowcase } from './CarShowcase'
+import { showcaseSlot } from './CarShowcase'
 import { Key, WasdKeys } from './Key'
+
+// The pictures in the car picker, fetched while the game loads so the menu shows them straight away.
+for (const car of CARS) new Image().src = carPreviewUrl(car.id)
+
+const pointShowcaseHere = (element: HTMLDivElement | null) => {
+  showcaseSlot.element = element
+}
 
 // After a mouse click, keep focus off the button so Enter still starts qualy.
 const keepFocus = (e: MouseEvent) => e.preventDefault()
 
-/** The title screen: race modes on a kerbed panel, your car on a turntable beside it. */
+/** The title screen: race modes on a slanted panel, your car on a turntable beside it. */
 export function MainMenu() {
   const personalBest = useGame((s) => s.personalBest)
   const startQualy = useGame((s) => s.startQualy)
   const startPractice = useGame((s) => s.startPractice)
   const setViewing = useGame((s) => s.setViewing)
+  const viewTrack = useGame((s) => s.viewTrack)
+  const leaving = useGame((s) => s.leavingMenu)
+  // Once the panel has slid out (the car leaves at the same pace), show the track.
+  const onPanelGone = (e: AnimationEvent) => {
+    if (e.target === e.currentTarget && e.animationName === 'menu-leave-left') setViewing(true)
+  }
 
   return (
-    <div className="menu">
-      <section className="menu-panel">
-        <KerbEdge />
+    <div className={`menu ${leaving ? 'is-leaving' : ''}`} inert={leaving || undefined}>
+      <section className="menu-panel" onAnimationEnd={onPanelGone}>
+        <SlashEdge />
         <div className="menu-content">
-          <h1 className="menu-title">
-            <span>Kart</span> <span>Race</span>
-          </h1>
+          <header className="menu-head">
+            <h1 className="menu-title">
+              <span>Fastest</span> <span>Lap</span>
+            </h1>
+            {/* Your record, as the "fastest lap" caption on a race broadcast. */}
+            <p className="menu-record">
+              <span className="menu-record-chip">Track record</span>
+              {personalBest === null ? (
+                <span className="menu-record-empty">No time yet. Set one in qualifying.</span>
+              ) : (
+                <strong className="menu-record-time">{formatTime(personalBest)}</strong>
+              )}
+            </p>
+          </header>
 
           <div className="menu-actions">
             <button className="menu-action menu-action-start" onMouseDown={keepFocus} onClick={startQualy}>
@@ -40,24 +64,17 @@ export function MainMenu() {
             </button>
           </div>
 
-          {personalBest === null ? (
-            <p className="menu-record">No record yet. Finish a qualy lap to set one.</p>
-          ) : (
-            <p className="menu-record">
-              Track record <strong>{formatTime(personalBest)}</strong>
-            </p>
-          )}
-
-          <div className="menu-links">
-            <button className="menu-link" onMouseDown={keepFocus} onClick={() => setViewing(true)}>
+          <nav className="menu-links" aria-label="More">
+            <button className="menu-link" onMouseDown={keepFocus} onClick={viewTrack}>
               View the track <Key>V</Key>
             </button>
             <a className="menu-link" href="?garage">
               Open the garage
             </a>
-          </div>
+          </nav>
+        </div>
 
-          <div className="menu-help">
+        <footer className="menu-help">
             <span className="menu-help-item">
               <WasdKeys />
               <span>Drive, or use the arrow keys</span>
@@ -66,28 +83,24 @@ export function MainMenu() {
               <Key>R</Key>
               <span>Back on track</span>
             </span>
-          </div>
-        </div>
+        </footer>
       </section>
 
       <section className="menu-stage" aria-label="Your car">
-        <div className="menu-showcase">
-          <CarShowcase />
-        </div>
+        {/* The main canvas draws your car on its turntable into this box (see CarShowcase). */}
+        <div className="menu-showcase" ref={pointShowcaseHere} />
         <CarGrid />
       </section>
     </div>
   )
 }
 
-/** The panel's edge: a hairpin of red and white kerb. */
-function KerbEdge() {
-  const curve = 'M82,0 C104,28 104,72 82,100'
+/** The panel's edge: a slanted cut, with a red stripe running along it. */
+function SlashEdge() {
   return (
     <svg className="menu-edge" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
-      <path className="menu-edge-fill" d={`${curve} L0,100 L0,0 Z`} />
-      <path className="menu-edge-chalk" d={curve} />
-      <path className="menu-edge-red" d={curve} />
+      <path className="menu-edge-fill" d="M0,0 H96 L84,100 H0 Z" />
+      <path className="menu-edge-stripe" d="M96,0 H99.5 L87.5,100 H84 Z" />
     </svg>
   )
 }

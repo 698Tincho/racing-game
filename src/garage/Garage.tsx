@@ -71,7 +71,7 @@ export function Garage() {
       </Canvas>
 
       <div className="garage-ui">
-        <p className="eyebrow">Kart Race</p>
+        <p className="eyebrow">Fastest Lap</p>
         <h1>Garage</h1>
         <div className="garage-views">
           {(Object.keys(VIEWS) as ViewName[]).map((name) => (

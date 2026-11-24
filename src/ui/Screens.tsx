@@ -3,6 +3,8 @@ import { ATTEMPTS, bestOf, formatDelta, formatTime, useGame } from '../game/race
 import { playUiSound } from '../game/audio/sound'
 import { CARS } from '../game/cars'
 import { MainMenu } from './MainMenu'
+import { Loading } from './Loading'
+import { useLoading } from '../game/loading'
 
 /**
  * Menu, the between-laps screen in qualy, and results.
@@ -12,10 +14,11 @@ import { MainMenu } from './MainMenu'
 export function Screens() {
   const phase = useGame((s) => s.phase)
   const viewing = useGame((s) => s.viewing)
+  const loaded = useLoading((s) => s.finished)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.repeat) return
+      if (e.repeat || !useLoading.getState().finished) return
       const { phase, viewing, startQualy, startPractice, advance, backToMenu, setViewing } = useGame.getState()
       const confirm = e.code === 'Enter' || e.code === 'Space'
       // Tabbed onto a menu control: let Enter or Space activate that one.
@@ -25,7 +28,7 @@ export function Screens() {
         return
       }
       if (phase === 'menu' && e.code === 'KeyV') {
-        setViewing(true)
+        useGame.getState().viewTrack()
         return
       }
       if (phase === 'menu') {
@@ -48,7 +51,12 @@ export function Screens() {
     // Small sounds for picking a car, starting a race and opening the track view.
     const stopSounds = useGame.subscribe((now, before) => {
       if (now.carId !== before.carId) playUiSound('rotate')
-      else if (now.viewing !== before.viewing || (before.phase === 'menu' && now.phase === 'countdown')) playUiSound('toggle')
+      else if (
+        (now.leavingMenu && !before.leavingMenu) ||
+        (now.viewing !== before.viewing && !before.leavingMenu) ||
+        (before.phase === 'menu' && now.phase === 'countdown')
+      )
+        playUiSound('toggle')
     })
     return () => {
       window.removeEventListener('keydown', onKey)
@@ -56,6 +64,15 @@ export function Screens() {
     }
   }, [])
 
+  return (
+    <>
+      {loaded && <Screen phase={phase} viewing={viewing} />}
+      <Loading />
+    </>
+  )
+}
+
+function Screen({ phase, viewing }: { phase: string; viewing: boolean }) {
   if (viewing) return <Viewing />
   if (phase === 'menu') return <MainMenu />
   if (phase === 'finished') return <BetweenLaps />

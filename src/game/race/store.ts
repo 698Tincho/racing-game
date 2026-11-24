@@ -61,6 +61,8 @@ type GameState = {
   showGhost: boolean
   /** Menu hidden, free camera to look around the whole track. */
   viewing: boolean
+  /** The menu is sliding out on its way to the track view; the camera holds still meanwhile. */
+  leavingMenu: boolean
   /** Which camera you race with. The high view is switched off for now. */
   cameraView: CameraView
   /** Which car you drive (saved). */
@@ -76,6 +78,8 @@ type GameState = {
   completeSector: (index: number, time: number) => void
   toggleGhost: () => void
   setViewing: (on: boolean) => void
+  /** From the menu: slide it away, then look around the track (MainMenu calls setViewing when it's gone). */
+  viewTrack: () => void
   setCar: (id: CarId) => void
 }
 
@@ -167,6 +171,7 @@ export const useGame = create<GameState>()((set, get) => ({
   recordSectors: loadSectors(),
   showGhost: true,
   viewing: false,
+  leavingMenu: false,
   cameraView: 'chase',
   carId: loadCar(),
 
@@ -239,7 +244,7 @@ export const useGame = create<GameState>()((set, get) => ({
     set((s) => ({ phase: 'outlap', gridId: s.gridId + 1 }))
   },
 
-  backToMenu: () => set((s) => ({ phase: 'menu', viewing: false, gridId: s.gridId + 1 })),
+  backToMenu: () => set((s) => ({ phase: 'menu', viewing: false, leavingMenu: false, gridId: s.gridId + 1 })),
 
   completeSector: (index, time) => {
     const { sectors, bestSectors, recordSectors } = get()
@@ -264,7 +269,14 @@ export const useGame = create<GameState>()((set, get) => ({
   },
 
   toggleGhost: () => set((s) => ({ showGhost: !s.showGhost })),
-  setViewing: (on) => set({ viewing: on }),
+  setViewing: (on) => set({ viewing: on, leavingMenu: false }),
+  viewTrack: () => {
+    const { phase, viewing, leavingMenu } = get()
+    if (phase !== 'menu' || viewing || leavingMenu) return
+    // Nothing to wait for without the animation.
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) set({ viewing: true })
+    else set({ leavingMenu: true })
+  },
   setCar: (carId) => {
     set({ carId })
     try {

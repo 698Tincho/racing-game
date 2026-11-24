@@ -1,5 +1,5 @@
 {
-  "name": "kart-race",
+  "name": "fastest-lap",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -10,8 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@fontsource-variable/nunito": "^5.3.0",
-    "@fontsource/lilita-one": "^5.3.0",
+    "@fontsource-variable/exo-2": "^5.3.0",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",
     "@react-three/rapier": "^2.2.0",
@@ -21,6 +20,7 @@
     "zustand": "^5.1.0"
   },
   "devDependencies": {
+    "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/three": "^0.187.0",

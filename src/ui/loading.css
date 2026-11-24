@@ -1,0 +1,144 @@
+/*
+ * The loading screen: a start gantry (src/ui/gantry.ts, src/ui/Loading.tsx).
+ *
+ * These styles are inlined into index.html's <head> by vite.config.ts, so the
+ * screen is right from the very first frame, before the rest of the page's
+ * styles (and the game's code) arrive. Keep it self-contained: no variables
+ * from index.css.
+ */
+
+.loading {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: #000; /* the photo's night */
+  font-family: 'Exo 2 Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  transition: opacity 0.52s ease;
+}
+
+.loading.is-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-inner {
+  display: grid;
+  justify-items: center;
+  gap: 30px;
+  width: min(980px, 100%);
+}
+
+/* The gantry: a photo with every light on, and a dark copy over each unit while it's off (src/ui/gantry.ts). */
+.gantry {
+  width: min(980px, 100%);
+}
+
+/* Narrow screens: the units fill the width, and the truss runs off the sides. */
+@media (max-width: 700px) {
+  .loading {
+    overflow: hidden;
+  }
+
+  .loading-inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gantry {
+    width: 172vw;
+    max-width: none;
+    margin-left: calc(50% - 86vw);
+    justify-self: start;
+  }
+}
+
+.gantry-photo {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  /* The truss runs on past the photo: let it fade into the night. */
+  mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+}
+
+.gantry-photo img {
+  display: block;
+  max-width: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+.gantry-base {
+  width: 100%;
+  height: auto;
+}
+
+.gantry-unit,
+.gantry-bloom {
+  position: absolute;
+  overflow: hidden;
+  /* Soft edges, so the dark copy and the glow blend into the photo round them. */
+  mask-image:
+    linear-gradient(to right, transparent, #000 14%, #000 86%, transparent),
+    linear-gradient(to bottom, transparent, #000 6%, #000 94%, transparent);
+  mask-composite: intersect;
+}
+
+.gantry-unit img,
+.gantry-bloom img {
+  position: absolute;
+  height: auto;
+}
+
+/* Off: the same unit, dark. The LEDs are still there, dull and deep red. */
+.gantry-unit img {
+  filter: brightness(0.14) saturate(0.7);
+}
+
+.gantry-unit.is-on {
+  opacity: 0;
+}
+
+/* On: a little extra light spilling off the lamps, like a camera's bloom. */
+.gantry-bloom {
+  opacity: 0;
+  mix-blend-mode: screen;
+  transition: opacity 0.12s ease;
+}
+
+.gantry-bloom img {
+  filter: blur(12px) brightness(1.15);
+}
+
+.gantry-bloom.is-on {
+  opacity: 0.55;
+}
+
+.loading-line {
+  width: min(360px, 100%);
+  height: 3px;
+  overflow: hidden;
+  background: rgba(244, 244, 246, 0.12);
+}
+
+.loading-line-fill {
+  width: 0;
+  height: 100%;
+  background: #e5172f;
+}
+
+.loading-status {
+  min-height: 1.4em;
+  margin: -14px 0 0;
+  color: #9d9daa;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading,
+  .gantry-bloom {
+    transition: none;
+  }
+}

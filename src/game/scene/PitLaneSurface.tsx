@@ -47,10 +47,18 @@ function laneWidths() {
       }
       // The edge towards the track: pave across to it, up to where the wall starts.
       if (trackSideWall[i]) break
-      // (Stepping out until it's under the track's asphalt, since the two meet at an angle.)
-      let reach = PIT_LANE_HALF_WIDTH
-      while (reach < MAX_REACH && out(offsetLeft(p, reach)) > ROAD_HALF_WIDTH - TUCK) reach += 0.1
-      left[i] = reach
+      // (Searching out until it's under the track's asphalt, since the two meet at an angle.)
+      const under = (reach: number) => out(offsetLeft(p, reach)) <= ROAD_HALF_WIDTH - TUCK
+      if (under(PIT_LANE_HALF_WIDTH)) continue
+      let lo = PIT_LANE_HALF_WIDTH
+      let hi = MAX_REACH
+      if (!under(hi)) continue
+      while (hi - lo > 0.05) {
+        const mid = (lo + hi) / 2
+        if (under(mid)) hi = mid
+        else lo = mid
+      }
+      left[i] = hi
     }
   }
   return { left, right }
@@ -77,6 +85,20 @@ function ribbon(left: number[], right: number[], y: number) {
   return geometry
 }
 
+let surfaceCache: THREE.BufferGeometry | null = null
+/** The lane's asphalt, built once. */
+function laneSurface() {
+  if (!surfaceCache) {
+    const { left, right } = laneWidths()
+    surfaceCache = ribbon(left, right, PIT_LANE_Y)
+  }
+  return surfaceCache
+}
+
+const limited = pitLane.path.filter((p) => p.limiter)
+/** Where the speed limit starts and ends. */
+const limitLines = [limited[0], limited[limited.length - 1]]
+
 /** The pit lane's asphalt, the same as the track's, plus its limiter lines. */
 export function PitLaneSurface() {
   const road = useRacingPiece('roadStraight')
@@ -90,17 +112,7 @@ export function PitLaneSurface() {
     return trackAsphalt(found!)
   }, [road])
 
-  const { surface, limitLines } = useMemo(() => {
-    const limited = pitLane.path.filter((p) => p.limiter)
-    return {
-      surface: (() => {
-        const { left, right } = laneWidths()
-        return ribbon(left, right, PIT_LANE_Y)
-      })(),
-      // Where the speed limit starts and ends.
-      limitLines: [limited[0], limited[limited.length - 1]],
-    }
-  }, [])
+  const surface = laneSurface()
 
   return (
     <>
