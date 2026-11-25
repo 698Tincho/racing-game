@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- RACING's mark: the logo's three slashes, fading out, on the game's red. -->
+  <rect width="64" height="64" fill="#d0142f"/>
+  <g transform="translate(8.4 14.45) scale(1.35)" fill="#ffffff">
+    <polygon points="8,0 18,0 10,26 0,26"/>
+    <polygon points="21,0 28,0 20,26 13,26" fill-opacity="0.7"/>
+    <polygon points="31,0 35,0 27,26 23,26" fill-opacity="0.45"/>
+  </g>
+</svg>
