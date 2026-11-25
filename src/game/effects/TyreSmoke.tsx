@@ -113,7 +113,7 @@ export function TyreSmoke() {
 
     const offRoad = surface === 'grass' || surface === 'gravel'
     const moving = THREE.MathUtils.clamp(Math.abs(speed) / 8, 0, 1)
-    const emitting = grounded && !viewing && (phase === 'outlap' || phase === 'racing' || phase === 'finished')
+    const emitting = grounded && !viewing && (phase === 'outlap' || phase === 'racing')
     const rate = emitting
       ? tyreScrub() * 70 + launch * 45 + impact * 80 + (offRoad ? moving * (surface === 'gravel' ? 42 : 18) : 0)
       : 0

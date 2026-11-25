@@ -176,8 +176,8 @@ export function Kart() {
       } else if (throttle < 0) {
         if (fwdSpeed > 0.5) fwdSpeed = Math.max(0, fwdSpeed - T.brake * dt)
         else fwdSpeed = Math.max(-T.maxReverse * ground.maxSpeed, fwdSpeed - T.reverseAccel * ground.accel * dt)
-      } else if (game.phase === 'finished') {
-        // Qualy lap done: pull up gently while the time is on screen.
+      } else if (game.phase === 'results') {
+        // Qualy run done: pull up gently while the results come up.
         fwdSpeed = moveToward(fwdSpeed, 0, T.brake * 0.35 * dt)
       } else {
         fwdSpeed = moveToward(fwdSpeed, 0, T.coast * dt)

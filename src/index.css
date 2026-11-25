@@ -91,7 +91,6 @@ kbd,
 .hud-times dd,
 .hud-popup,
 .speedo-readout span,
-.banner-time,
 .results-time,
 .laps {
   font-variant-numeric: tabular-nums;
@@ -472,6 +471,7 @@ kbd,
   font-stretch: 62%;
   letter-spacing: 0.01em;
   text-transform: uppercase;
+  white-space: nowrap;
   /* Slanted at the menu's lean: 14px across for its ~44px height. */
   clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
   transition:
@@ -504,44 +504,6 @@ kbd,
   font-style: normal;
 }
 
-/*
- * Qualy: the lap just done, like a caption on the broadcast. Panels you read
- * stay upright with a straight red edge (as the race display's timing tower);
- * only the button in it slants, as on the menu.
- */
-.banner {
-  position: relative;
-  display: grid;
-  justify-items: start;
-  min-width: min(400px, 100%);
-  padding: 18px 32px 24px 26px;
-  border-left: 6px solid var(--red);
-  background: var(--panel-glass);
-  text-align: left;
-  animation: pop 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.banner-time {
-  margin: 10px 0 0;
-  font-size: 72px;
-  line-height: 1;
-}
-
-.banner-wait {
-  pointer-events: auto;
-}
-
-.banner-cta {
-  display: flex;
-  margin-top: 20px;
-}
-
-.banner-next {
-  margin: 10px 0 0;
-  color: var(--grey);
-  font-size: 14px;
-}
-
 /* Time deltas and records, in the timing colours: small labels, as on the menu. */
 .tag {
   display: inline-block;
@@ -570,10 +532,13 @@ kbd,
   color: var(--carbon);
 }
 
-/* Qualy results: a timing sheet. */
+/*
+ * Qualy results: a timing sheet. Panels you read stay upright with a straight
+ * red edge (as the race display's timing tower); only its buttons slant.
+ */
 .card {
   position: relative;
-  width: min(440px, 100%);
+  width: min(480px, 100%);
   padding: 22px 28px 26px 26px;
   border-left: 6px solid var(--red);
   background: var(--panel);
@@ -618,12 +583,23 @@ kbd,
   color: var(--purple);
 }
 
-.record {
-  margin: 16px 0;
+/* Under the best time: the new record and by how much, or how far off your record you were. */
+.results-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 12px 0 0;
   color: var(--grey);
+  font-size: 15px;
+  font-weight: 500;
 }
 
-.record strong {
+.results-verdict .tag {
+  margin: 0;
+}
+
+.results-verdict strong {
   color: var(--white);
   font-variant-numeric: tabular-nums;
 }
@@ -631,6 +607,7 @@ kbd,
 .actions {
   display: flex;
   gap: 10px;
+  margin-top: 20px;
 }
 
 @keyframes pop {
@@ -1259,11 +1236,17 @@ kbd,
 }
 
 /* Every key the menu answers to, on a dark bar along the bottom. */
+/* Hidden until the mouse moves (MainMenu), then gone again after a few still seconds. */
 .menu-hints {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
+  opacity: 0;
+  transform: translateY(100%);
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1272,7 +1255,11 @@ kbd,
   background: var(--carbon);
   color: var(--grey);
   font-size: calc(13 * var(--u));
-  animation: menu-fade 0.55s ease both;
+}
+
+.menu.show-hints .menu-hints {
+  opacity: 1;
+  transform: none;
 }
 
 .menu-hints ul {

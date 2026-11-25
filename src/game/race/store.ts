@@ -5,12 +5,13 @@ import { DEFAULT_CAR, isCarId, type CarId } from '../cars'
 // Two ways to play:
 //   practice — as many laps as you like. First lap from the grid, then flying
 //              laps; each lap time pops up as you cross the line. Not saved.
-//   qualy    — ATTEMPTS flying laps. Each starts in your pit box: drive out of
-//              the pits, do an out-lap, and the timed lap starts when you cross
-//              the line. After each lap the game waits for you to press Enter
-//              before the next one. Your best attempt is saved as the track record.
+//   qualy    — one run from your pit box: drive out of the pits and round to the
+//              line (the out-lap), then ATTEMPTS timed laps back to back. Each lap
+//              time pops up as you cross the line; after the last one the results
+//              come up. Your best lap is saved as the track record.
 export type Mode = 'practice' | 'qualy'
 
+/** Qualy: timed laps in a run. */
 export const ATTEMPTS = 3
 export const COUNTDOWN_SECONDS = 3
 // Bump this when the track's layout or the driving physics change, so old
@@ -22,7 +23,6 @@ export type Phase =
   | 'countdown' // 3, 2, 1 on the grid
   | 'outlap' // qualy: out of the pits and round to the line, timer not running yet
   | 'racing' // timer running
-  | 'finished' // qualy: lap done, waiting for Enter
   | 'results' // qualy: summary after the last attempt
 
 /**
@@ -71,8 +71,6 @@ type GameState = {
   startPractice: () => void
   startQualy: () => void
   finishLap: (time: number) => void
-  /** Qualy: Enter after a lap → next attempt, or results after the last one. */
-  advance: () => void
   backToMenu: () => void
   /** The kart crossed the end of sector `index` at lap time `time`. */
   completeSector: (index: number, time: number) => void
@@ -223,25 +221,21 @@ export const useGame = create<GameState>()((set, get) => ({
 
     const isRecord = personalBest === null || time < personalBest
     if (isRecord) saveBest(time)
-    race.time = time // the on-screen timer stops on the exact lap time
-    set({
-      phase: 'finished',
-      attempts: [...attempts, time],
-      lastLapTime: time,
-      personalBest: isRecord ? time : personalBest,
-      ...lapSectors,
-    })
-  },
+    const laps = [...attempts, time]
+    const qualyLap = { attempts: laps, lastLapTime: time, personalBest: isRecord ? time : personalBest, ...lapSectors }
 
-  advance: () => {
-    const { phase, attempts } = get()
-    if (phase !== 'finished') return
-    if (attempts.length >= ATTEMPTS) {
-      set({ phase: 'results' })
+    if (laps.length >= ATTEMPTS) {
+      // Last timed lap: stop the clock on it and show the results.
+      race.time = time
+      set({ phase: 'results', ...qualyLap })
       return
     }
-    resetLap()
-    set((s) => ({ phase: 'outlap', gridId: s.gridId + 1 }))
+    // More to go: the next timed lap starts at the line, like a practice lap.
+    race.time = pastTheLine
+    race.nextCheckpoint = 0
+    race.sinceLap = 0
+    race.sectorStart = 0
+    set(qualyLap)
   },
 
   backToMenu: () => set((s) => ({ phase: 'menu', viewing: false, leavingMenu: false, gridId: s.gridId + 1 })),

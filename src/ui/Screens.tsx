@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { ATTEMPTS, bestOf, formatDelta, formatTime, useGame } from '../game/race/store'
+import { bestOf, formatDelta, formatTime, useGame } from '../game/race/store'
 import { playUiSound } from '../game/audio/sound'
 import { CARS } from '../game/cars'
 import { MainMenu, nextCar } from './MainMenu'
@@ -7,9 +7,9 @@ import { Loading } from './Loading'
 import { useLoading } from '../game/loading'
 
 /**
- * Menu, the between-laps screen in qualy, and results.
- * Keys: Enter = start qualy / next attempt, P = practice, 1-3 or ← → = car, V = view the track,
- * G = ghost on/off, Esc = menu (or stop viewing).
+ * Menu, and the qualifying results.
+ * Keys: Enter = start qualy (or try again from the results), P = practice, 1-3 or ← → = car,
+ * V = view the track, G = ghost on/off, Esc = menu (or stop viewing).
  */
 export function Screens() {
   const phase = useGame((s) => s.phase)
@@ -19,10 +19,10 @@ export function Screens() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || !useLoading.getState().finished) return
-      const { phase, viewing, startQualy, startPractice, advance, backToMenu, setViewing } = useGame.getState()
+      const { phase, viewing, startQualy, startPractice, backToMenu, setViewing } = useGame.getState()
       const confirm = e.code === 'Enter' || e.code === 'Space'
-      // Tabbed onto a menu control: let Enter or Space activate that one.
-      if (phase === 'menu' && confirm && (e.target as HTMLElement).closest?.('button, a')) return
+      // Tabbed onto a menu or results button: let Enter or Space activate that one.
+      if ((phase === 'menu' || phase === 'results') && confirm && (e.target as HTMLElement).closest?.('button, a')) return
       if (viewing) {
         if (e.code === 'Escape' || e.code === 'KeyV') setViewing(false)
         return
@@ -38,15 +38,10 @@ export function Screens() {
         if (e.code === 'ArrowLeft') setCar(nextCar(carId, -1))
         if (e.code === 'ArrowRight') setCar(nextCar(carId, 1))
       }
-      if (phase === 'menu' || phase === 'results') {
-        if (confirm) {
-          e.preventDefault()
-          startQualy()
-        } else if (e.code === 'KeyP') startPractice()
-      } else if (phase === 'finished' && confirm) {
+      if ((phase === 'menu' || phase === 'results') && confirm) {
         e.preventDefault()
-        advance()
-      }
+        startQualy()
+      } else if (phase === 'menu' && e.code === 'KeyP') startPractice()
       if (e.code === 'Escape' && phase !== 'menu') backToMenu()
       if (e.code === 'KeyG') useGame.getState().toggleGhost()
     }
@@ -78,7 +73,6 @@ export function Screens() {
 function Screen({ phase, viewing }: { phase: string; viewing: boolean }) {
   if (viewing) return <Viewing />
   if (phase === 'menu') return <MainMenu />
-  if (phase === 'finished') return <BetweenLaps />
   if (phase === 'results') return <Results />
   return null
 }
@@ -96,75 +90,60 @@ function Viewing() {
   )
 }
 
-/** Qualy: shown after each attempt until the player presses Enter. */
-function BetweenLaps() {
-  const attempts = useGame((s) => s.attempts)
-  const previousBest = useGame((s) => s.previousBest)
-  const advance = useGame((s) => s.advance)
-
-  const done = attempts.length
-  const time = attempts[done - 1]
-  const bestBefore = bestOf(attempts.slice(0, -1))
-  const delta = bestBefore !== null ? time - bestBefore : null
-  // A record only if it beats the old record *and* this session's earlier attempts.
-  const isRecord = (previousBest === null || time < previousBest) && (bestBefore === null || time < bestBefore)
-  const last = done >= ATTEMPTS
-
-  return (
-    <div className="screen">
-      <div className="banner banner-wait">
-        <p className="eyebrow">
-          Attempt {done} of {ATTEMPTS}
-        </p>
-        <p className="banner-time">{formatTime(time)}</p>
-        {isRecord ? (
-          <p className="tag tag-gold">New record</p>
-        ) : delta !== null ? (
-          <p className={`tag ${delta < 0 ? 'tag-good' : 'tag-bad'}`}>{formatDelta(delta)}</p>
-        ) : null}
-        <button className="cta banner-cta" onClick={advance}>
-          {last ? 'See results' : `Start attempt ${done + 1}`} <kbd>Enter</kbd>
-        </button>
-      </div>
-    </div>
-  )
-}
-
+/** Qualy: after the last timed lap. Your best lap counts; try again, or back to the menu. */
 function Results() {
   const attempts = useGame((s) => s.attempts)
-  const personalBest = useGame((s) => s.personalBest)
   const previousBest = useGame((s) => s.previousBest)
   const startQualy = useGame((s) => s.startQualy)
   const menu = useGame((s) => s.backToMenu)
 
   const best = bestOf(attempts)
   const isRecord = best !== null && (previousBest === null || best < previousBest)
+  // How far this run's best was from the record you had going in: under it (a new record) or off it.
+  const gap = best !== null && previousBest !== null ? best - previousBest : null
 
   return (
     <div className="screen screen-dim">
-      <div className="card">
+      <div className="card" role="dialog" aria-label="Qualifying results">
         <p className="eyebrow">Qualifying results</p>
         <h1 className="results-time">{formatTime(best)}</h1>
-        {isRecord && <p className="tag tag-gold">New record</p>}
+        <p className="results-verdict">
+          {isRecord ? (
+            <>
+              <span className="tag tag-gold">New record</span>
+              {gap === null ? (
+                <span>Your first record on this track.</span>
+              ) : (
+                <span>
+                  <strong>{formatDelta(gap)}</strong> under your old record of {formatTime(previousBest)}
+                </span>
+              )}
+            </>
+          ) : gap !== null ? (
+            <>
+              <span className="tag tag-bad">{formatDelta(gap)}</span>
+              <span>
+                off your record of <strong>{formatTime(previousBest)}</strong>
+              </span>
+            </>
+          ) : null}
+        </p>
 
         <ol className="laps">
           {attempts.map((t, i) => (
             <li key={i} className={t === best ? 'lap-best' : ''}>
-              <span>Attempt {i + 1}</span>
+              <span>Lap {i + 1}</span>
               <span>{formatTime(t)}</span>
             </li>
           ))}
         </ol>
 
-        <p className="record">
-          Track record <strong>{formatTime(personalBest)}</strong>
-        </p>
         <div className="actions">
           <button className="cta" onClick={startQualy}>
-            Qualify again <kbd>Enter</kbd>
+            Try again <kbd>Enter</kbd>
           </button>
           <button className="ghost" onClick={menu}>
-            Menu
+            Back to menu <kbd>Esc</kbd>
           </button>
         </div>
       </div>

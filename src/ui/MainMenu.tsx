@@ -1,4 +1,4 @@
-import type { AnimationEvent, MouseEvent } from 'react'
+import { useEffect, useState, type AnimationEvent, type MouseEvent } from 'react'
 import { CARS, carRenderUrl, type CarId } from '../game/cars'
 import { ATTEMPTS, formatTime, useGame } from '../game/race/store'
 import { track } from '../game/track/layout'
@@ -32,13 +32,14 @@ export const nextCar = (id: CarId, step: 1 | -1): CarId => {
 export function MainMenu() {
   const leaving = useGame((s) => s.leavingMenu)
   const setViewing = useGame((s) => s.setViewing)
+  const hints = useMouseActive()
   // Once the left side has slid out (the right leaves at the same pace), show the track.
   const onLeftGone = (e: AnimationEvent) => {
     if (e.target === e.currentTarget && e.animationName === 'menu-leave-left') setViewing(true)
   }
 
   return (
-    <div className={`menu ${leaving ? 'is-leaving' : ''}`} inert={leaving || undefined}>
+    <div className={`menu ${leaving ? 'is-leaving' : ''} ${hints ? 'show-hints' : ''}`} inert={leaving || undefined}>
       <section className="menu-left" aria-label="Your car" onAnimationEnd={onLeftGone}>
         <Logo />
         <CarHeading />
@@ -87,6 +88,38 @@ function Logo() {
       </svg>
     </h1>
   )
+}
+
+const HINTS_IDLE_MS = 3000
+
+/**
+ * True while the mouse is moving, and for a few seconds after: the menu's key
+ * hints show only then. Moves where the cursor stayed put don't count: the
+ * browser sends those when what's under a still cursor changes (the hint bar
+ * sliding in under it, say), and they'd keep the bar up for ever.
+ */
+function useMouseActive() {
+  const [active, setActive] = useState(false)
+  useEffect(() => {
+    let timer = 0
+    let lastX = NaN
+    let lastY = NaN
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse') return
+      if (e.clientX === lastX && e.clientY === lastY) return
+      lastX = e.clientX
+      lastY = e.clientY
+      setActive(true)
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => setActive(false), HINTS_IDLE_MS)
+    }
+    window.addEventListener('pointermove', onMove)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.clearTimeout(timer)
+    }
+  }, [])
+  return active
 }
 
 function Eyebrow({ children }: { children: string }) {
@@ -222,7 +255,7 @@ function Sessions() {
         <span className="menu-session-index">01</span>
         <span className="menu-session-text">
           <strong>Qualifying</strong>
-          <small>{ATTEMPTS} flying laps. Your best one counts.</small>
+          <small>Out of the pits, then {ATTEMPTS} timed laps. Your best one counts.</small>
         </span>
         <Key>Enter</Key>
       </button>

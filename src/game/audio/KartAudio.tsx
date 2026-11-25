@@ -32,7 +32,7 @@ export function KartAudio() {
 
   useFrame((state) => {
     const { phase, viewing } = useGame.getState()
-    const onTrack = !viewing && (phase === 'countdown' || phase === 'outlap' || phase === 'racing' || phase === 'finished')
+    const onTrack = !viewing && (phase === 'countdown' || phase === 'outlap' || phase === 'racing')
 
     const speed = clamp(Math.abs(kartState.speed) / T.maxSpeed, 0, 1)
     const throttle = Math.abs(kartState.throttle)

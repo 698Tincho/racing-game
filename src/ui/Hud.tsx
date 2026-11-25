@@ -13,7 +13,7 @@ const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)'
 
 /**
  * In-race overlay. Things that change every frame (timer, speed, countdown,
- * practice lap pop-up) are written straight to the DOM from a
+ * lap pop-up) are written straight to the DOM from a
  * requestAnimationFrame loop; things that change once in a while (lap count,
  * best times) come from zustand.
  */
@@ -98,23 +98,24 @@ export function Hud() {
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  const inRace = phase === 'countdown' || phase === 'outlap' || phase === 'racing' || phase === 'finished'
+  const inRace = phase === 'countdown' || phase === 'outlap' || phase === 'racing'
   const practice = mode === 'practice'
   const laps = practice ? practiceLaps : attempts
   const best = bestOf(laps)
-  // While waiting after a qualy lap, keep showing the attempt just done.
-  const attempt = phase === 'finished' ? attempts.length : Math.min(attempts.length + 1, ATTEMPTS)
+  const lap = Math.min(attempts.length + 1, ATTEMPTS)
 
-  // Practice pop-up: the lap just completed and how it compares to the best before it.
-  const last = practiceLaps.at(-1) ?? null
-  const bestBefore = bestOf(practiceLaps.slice(0, -1))
+  // Pop-up: the lap just completed and how it compares to the best before it.
+  const last = laps.at(-1) ?? null
+  const bestBefore = bestOf(laps.slice(0, -1))
   const delta = last !== null && bestBefore !== null ? last - bestBefore : null
 
   return (
     <div className="hud" style={{ opacity: inRace ? 1 : 0 }}>
       <div className="hud-tower">
         <div className="hud-tower-head">
-          <span>{practice ? `Practice lap ${practiceLaps.length + 1}` : `Attempt ${attempt} of ${ATTEMPTS}`}</span>
+          <span>
+            {practice ? `Practice lap ${practiceLaps.length + 1}` : phase === 'outlap' ? 'Qualifying · out lap' : `Qualifying · lap ${lap} of ${ATTEMPTS}`}
+          </span>
           <span className="hud-ghost">
             <Key>G</Key> Ghost {showGhost ? 'on' : 'off'}
           </span>
