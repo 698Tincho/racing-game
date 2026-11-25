@@ -118,7 +118,7 @@ function BetweenLaps() {
         </p>
         <p className="banner-time">{formatTime(time)}</p>
         {isRecord ? (
-          <p className="tag tag-gold">New record!</p>
+          <p className="tag tag-gold">New record</p>
         ) : delta !== null ? (
           <p className={`tag ${delta < 0 ? 'tag-good' : 'tag-bad'}`}>{formatDelta(delta)}</p>
         ) : null}
@@ -145,7 +145,7 @@ function Results() {
       <div className="card">
         <p className="eyebrow">Qualifying results</p>
         <h1 className="results-time">{formatTime(best)}</h1>
-        {isRecord && <p className="tag tag-gold">New record!</p>}
+        {isRecord && <p className="tag tag-gold">New record</p>}
 
         <ol className="laps">
           {attempts.map((t, i) => (
@@ -161,7 +161,7 @@ function Results() {
         </p>
         <div className="actions">
           <button className="cta" onClick={startQualy}>
-            Qualy again <kbd>Enter</kbd>
+            Qualify again <kbd>Enter</kbd>
           </button>
           <button className="ghost" onClick={menu}>
             Menu

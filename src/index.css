@@ -236,7 +236,8 @@ kbd,
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 6px 16px 6px 20px;
+  padding: 6px 16px 6px 16px;
+  border-left: 6px solid var(--red);
   background: var(--panel-glass);
   font-size: 26px;
   white-space: nowrap;
@@ -246,18 +247,8 @@ kbd,
     transform 0.25s;
 }
 
-.hud-popup::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 -4px;
-  width: 8px;
-  background: var(--red);
-  transform: skewX(var(--lean));
-}
-
 .hud-popup .tag {
   margin: 0;
-  font-size: 15px;
 }
 
 .hud-countdown {
@@ -513,28 +504,26 @@ kbd,
   font-style: normal;
 }
 
-/* Qualy: the lap just done, like a caption on the broadcast. */
+/*
+ * Qualy: the lap just done, like a caption on the broadcast. Panels you read
+ * stay upright with a straight red edge (as the race display's timing tower);
+ * only the button in it slants, as on the menu.
+ */
 .banner {
   position: relative;
-  min-width: min(380px, 100%);
-  padding: 14px 30px 18px 34px;
+  display: grid;
+  justify-items: start;
+  min-width: min(400px, 100%);
+  padding: 18px 32px 24px 26px;
+  border-left: 6px solid var(--red);
   background: var(--panel-glass);
   text-align: left;
   animation: pop 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.banner::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 -5px;
-  width: 10px;
-  background: var(--red);
-  transform: skewX(var(--lean));
-}
-
 .banner-time {
-  margin: 0 0 6px;
-  font-size: 68px;
+  margin: 10px 0 0;
+  font-size: 72px;
   line-height: 1;
 }
 
@@ -544,7 +533,7 @@ kbd,
 
 .banner-cta {
   display: flex;
-  margin-top: 16px;
+  margin-top: 20px;
 }
 
 .banner-next {
@@ -553,13 +542,16 @@ kbd,
   font-size: 14px;
 }
 
-/* Time deltas and records, in the timing colours. */
+/* Time deltas and records, in the timing colours: small labels, as on the menu. */
 .tag {
   display: inline-block;
-  margin: 6px 0 0;
-  padding: 2px 10px;
-  font-size: 15px;
+  margin: 12px 0 0;
+  padding: 5px 10px;
+  font-size: 12px;
   font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   font-variant-numeric: tabular-nums;
 }
 
@@ -582,25 +574,15 @@ kbd,
 .card {
   position: relative;
   width: min(440px, 100%);
-  padding: 22px 28px 26px 32px;
+  padding: 22px 28px 26px 26px;
+  border-left: 6px solid var(--red);
   background: var(--panel);
   text-align: left;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
 }
 
-.card::before {
-  content: '';
-  position: absolute;
-  top: 22px;
-  left: -5px;
-  width: 10px;
-  height: 64px;
-  background: var(--red);
-  transform: skewX(var(--lean));
-}
-
 .card h1 {
-  margin: 0 0 10px;
+  margin: 10px 0 10px;
   font-size: 56px;
   font-weight: 700;
   line-height: 1;
