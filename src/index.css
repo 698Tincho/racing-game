@@ -3,26 +3,28 @@
 }
 
 /*
- * Race-broadcast graphics: carbon panels, white type, one signal red, and the
- * timing colours (purple fastest, green personal best, yellow slower) kept
- * for times only. The recurring mark is the slanted cut: the menu's edge,
- * the red tab on each panel, the buttons.
+ * RACING's look, shared by every screen (the main menu set it): Archivo in
+ * three widths (condensed and black for names and buttons, regular for text,
+ * three-quarter width for times), one red, near-black ink, white type, and
+ * the timing colours (purple fastest, green personal best, yellow slower)
+ * kept for times only. One slant everywhere, from the logo's slashes: 8 across
+ * for 26 up, about 17°.
  */
 :root {
-  --carbon: #111116;
-  --panel: #1a1a21;
-  --panel-glass: rgba(20, 20, 26, 0.9);
-  --raised: #24242d;
-  --line: rgba(244, 244, 246, 0.12);
-  --white: #f4f4f6;
-  --grey: #9d9daa;
-  --red: #e5172f;
-  --red-dark: #a50e20;
-  --purple: #b65cff;
+  --carbon: #121214; /* ink: bars, panels, text on light */
+  --panel: #18181c;
+  --panel-glass: rgba(14, 14, 18, 0.82);
+  --raised: #26262c;
+  --line: rgba(255, 255, 255, 0.14);
+  --white: #ffffff;
+  --grey: #b4b4bb;
+  --red: #d0142f; /* MENU_RED in CarShowcase */
+  --red-hover: #e01a37;
+  --purple: #b98aff;
   --green: #27d567;
   --yellow: #ffd21f;
-  --slant: 12deg; /* the angle of every cut */
-  --font: 'Exo 2 Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --lean: -17.1deg; /* MENU_LEAN in CarShowcase */
+  --font: 'Archivo Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 html,
@@ -52,7 +54,7 @@ kbd,
   height: 24px;
   margin: 0;
   padding: 0 7px;
-  border-radius: 3px;
+  border-radius: 0;
   background: var(--white);
   color: var(--carbon);
   font-family: var(--font);
@@ -93,7 +95,8 @@ kbd,
 .results-time,
 .laps {
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: 800;
+  font-stretch: 75%;
 }
 
 /* Darker corners, drawn in CSS instead of a post-processing pass. */
@@ -139,10 +142,10 @@ kbd,
   gap: 10px;
   padding-bottom: 4px;
   border-bottom: 1px solid var(--line);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.14em;
 }
 
 .hud-ghost {
@@ -189,7 +192,7 @@ kbd,
   font-weight: 700;
   line-height: 1.3;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.14em;
 }
 
 .hud-sector span {
@@ -249,7 +252,7 @@ kbd,
   inset: 0 auto 0 -4px;
   width: 8px;
   background: var(--red);
-  transform: skewX(calc(var(--slant) * -1));
+  transform: skewX(var(--lean));
 }
 
 .hud-popup .tag {
@@ -264,7 +267,8 @@ kbd,
   left: 0;
   color: var(--white);
   font-size: clamp(80px, 16vh, 136px);
-  font-weight: 800;
+  font-weight: 900;
+  font-stretch: 62%;
   line-height: 1;
   text-align: center;
   -webkit-text-stroke: 8px var(--carbon);
@@ -281,12 +285,13 @@ kbd,
   left: 50%;
   padding: 6px 26px;
   background: var(--red);
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 900;
+  font-stretch: 62%;
   text-transform: uppercase;
   white-space: nowrap;
   opacity: 0;
-  transform: translateX(-50%) skewX(calc(var(--slant) * -1));
+  transform: translateX(-50%) skewX(var(--lean));
   transition: opacity 0.2s;
 }
 
@@ -311,7 +316,7 @@ kbd,
 
 .speedo-block {
   fill: none;
-  stroke: rgba(244, 244, 246, 0.14);
+  stroke: rgba(255, 255, 255, 0.14);
   stroke-width: 11;
 }
 
@@ -338,9 +343,9 @@ kbd,
 
 .speedo-readout small {
   color: var(--grey);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -437,15 +442,28 @@ kbd,
 }
 
 .screen-dim {
-  background: rgba(8, 8, 12, 0.55);
+  background: rgba(14, 14, 18, 0.6);
   pointer-events: auto;
 }
 
+/* A small tracked label with a short rule after it, as on the menu. */
 .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin: 0;
   color: var(--grey);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.eyebrow::after {
+  content: '';
+  width: 40px;
+  height: 2px;
+  background: currentColor;
 }
 
 /* Buttons: slanted plates. The text stays upright. */
@@ -458,10 +476,13 @@ kbd,
   padding: 11px 26px;
   border-radius: 0;
   color: var(--white);
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 20px;
+  font-weight: 900;
+  font-stretch: 62%;
+  letter-spacing: 0.01em;
   text-transform: uppercase;
-  clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+  /* Slanted at the menu's lean: 14px across for its ~44px height. */
+  clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
   transition:
     background 0.12s,
     transform 0.08s;
@@ -472,7 +493,7 @@ kbd,
 }
 
 .cta:hover {
-  background: #f02a41;
+  background: var(--red-hover);
 }
 
 .ghost {
@@ -480,7 +501,7 @@ kbd,
 }
 
 .ghost:hover {
-  background: #30303b;
+  background: #303038;
 }
 
 .cta:active,
@@ -508,7 +529,7 @@ kbd,
   inset: 0 auto 0 -5px;
   width: 10px;
   background: var(--red);
-  transform: skewX(calc(var(--slant) * -1));
+  transform: skewX(var(--lean));
 }
 
 .banner-time {
@@ -544,7 +565,7 @@ kbd,
 
 .tag-gold {
   background: var(--purple);
-  color: var(--white);
+  color: var(--carbon);
 }
 
 .tag-good {
@@ -575,7 +596,7 @@ kbd,
   width: 10px;
   height: 64px;
   background: var(--red);
-  transform: skewX(calc(var(--slant) * -1));
+  transform: skewX(var(--lean));
 }
 
 .card h1 {
@@ -611,7 +632,7 @@ kbd,
 
 /* The best lap: purple, as on a timing screen. */
 .lap-best {
-  background: rgba(182, 92, 255, 0.16);
+  background: rgba(185, 138, 255, 0.16);
   color: var(--purple);
 }
 
@@ -652,7 +673,8 @@ kbd,
 .garage-ui h1 {
   margin: 0 0 12px;
   font-size: 38px;
-  font-weight: 700;
+  font-weight: 900;
+  font-stretch: 62%;
   line-height: 1;
   text-transform: uppercase;
 }
@@ -775,13 +797,11 @@ kbd,
  */
 .menu {
   --u: clamp(0.85px, min(0.078125vw, 0.138889vh), 1.6px);
-  --menu-red: #d0142f; /* MENU_RED in CarShowcase */
-  --menu-ink: #121214;
   position: fixed;
   inset: 0;
   overflow: hidden;
   color: #ffffff;
-  font-family: 'Archivo Variable', var(--font);
+  font-family: var(--font);
   font-weight: 500;
 }
 
@@ -795,11 +815,6 @@ kbd,
   inset: 0;
   pointer-events: none;
   animation: menu-fade 0.55s ease both;
-}
-
-.menu .key-cap {
-  border-radius: 0;
-  font-family: inherit;
 }
 
 .menu-left,
@@ -825,18 +840,32 @@ kbd,
   left: calc(50% + 150 * var(--u));
   width: min(calc(480 * var(--u)), calc(50% - 198 * var(--u)));
   animation: menu-arrive-right 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  /*
+   * The whole column leans at the menu's slant, pivoting on TRACK: everything
+   * below keeps TRACK's distance from the white line, so the column runs
+   * parallel to it. Each piece inside is set back upright.
+   */
+  transform: skewX(var(--lean));
+  transform-origin: 0 calc(6 * var(--u));
+}
+
+.menu-track > *,
+.menu-sessions > .menu-eyebrow,
+.menu-sessions > .menu-preview,
+.menu-session > * {
+  transform: skewX(calc(-1 * var(--lean)));
 }
 
 @keyframes menu-arrive {
   from {
-    transform: translateX(-56px);
+    translate: -56px 0;
     opacity: 0;
   }
 }
 
 @keyframes menu-arrive-right {
   from {
-    transform: translateX(56px);
+    translate: 56px 0;
     opacity: 0;
   }
 }
@@ -850,14 +879,14 @@ kbd,
 /* "Preview the track": the same moves in reverse, the car side out to the left and the track side to the right. */
 @keyframes menu-leave-left {
   to {
-    transform: translateX(-56px);
+    translate: -56px 0;
     opacity: 0;
   }
 }
 
 @keyframes menu-leave-right {
   to {
-    transform: translateX(56px);
+    translate: 56px 0;
     opacity: 0;
   }
 }
@@ -898,7 +927,7 @@ kbd,
 }
 
 .menu-brand text {
-  font-family: 'Archivo Variable', var(--font);
+  font-family: var(--font);
   font-weight: 900;
   font-stretch: 62%;
   letter-spacing: 0.01em;
@@ -964,44 +993,38 @@ kbd,
   position: absolute;
   top: calc(250 * var(--u));
   bottom: calc(180 * var(--u));
-  left: calc(40 * var(--u));
-  width: calc(50% - 100 * var(--u));
+  left: calc(84 * var(--u));
+  width: calc(50% - 228 * var(--u));
   pointer-events: none !important;
 }
 
-.menu-picker {
+/* ← → either side of the big car, level with its middle (the car box's middle is 50% + 35u). */
+.menu-arrow {
   position: absolute;
-  bottom: calc(76 * var(--u));
-  left: calc(64 * var(--u));
-  display: flex;
-  gap: calc(8 * var(--u));
-}
-
-.menu-tiles {
-  display: flex;
-  gap: calc(8 * var(--u));
-}
-
-.menu-arrow,
-.menu-tile {
+  top: calc(50% + 1 * var(--u));
+  display: grid;
+  place-items: center;
+  width: calc(44 * var(--u));
   height: calc(68 * var(--u));
+  border: 1.5px solid #ffffff;
+  background: transparent;
+  color: #ffffff;
   transition:
     background 0.12s,
     color 0.12s;
 }
 
-.menu-arrow {
-  display: grid;
-  place-items: center;
-  width: calc(44 * var(--u));
-  border: 1.5px solid #ffffff;
-  background: transparent;
-  color: #ffffff;
+.menu-arrow-prev {
+  left: calc(28 * var(--u));
+}
+
+.menu-arrow-next {
+  left: calc(50% - 124 * var(--u));
 }
 
 .menu-arrow:hover {
   background: #ffffff;
-  color: var(--menu-red);
+  color: var(--red);
 }
 
 .menu-arrow svg {
@@ -1012,53 +1035,52 @@ kbd,
   stroke-width: 2.2;
 }
 
+/* The cars in a row, no boxes: the chosen one bigger, with a bar under it. */
+.menu-tiles {
+  position: absolute;
+  bottom: calc(76 * var(--u));
+  left: calc(64 * var(--u));
+  display: flex;
+  align-items: flex-end;
+  gap: calc(20 * var(--u));
+}
+
 .menu-tile {
   position: relative;
-  display: grid;
-  place-items: center;
-  width: calc(112 * var(--u));
   padding: 0;
-  background: rgba(255, 255, 255, 0.16);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  background: none;
+  opacity: 0.75;
+  transition: opacity 0.15s;
 }
 
 .menu-tile:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.menu-tile.is-on {
-  background: #ffffff;
-  box-shadow: none;
-}
-
-/* The chosen car: a white bar under its tile. */
-.menu-tile.is-on::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(-8 * var(--u));
-  height: 3px;
-  background: #ffffff;
+  opacity: 1;
 }
 
 .menu-tile img {
-  width: calc(100 * var(--u));
+  display: block;
+  width: calc(96 * var(--u));
   height: auto;
+  transition: width 0.2s ease-out;
 }
 
-.menu-tile-key {
+.menu-tile.is-on {
+  opacity: 1;
+}
+
+.menu-tile.is-on img {
+  width: calc(128 * var(--u));
+}
+
+.menu-tile.is-on::after {
+  content: '';
   position: absolute;
-  top: calc(4 * var(--u));
-  right: calc(4 * var(--u));
-  display: grid;
-  place-items: center;
-  min-width: calc(18 * var(--u));
-  height: calc(18 * var(--u));
-  background: var(--menu-ink);
-  color: #ffffff;
-  font-size: calc(10 * var(--u));
-  font-weight: 700;
+  left: 18%;
+  right: 18%;
+  bottom: calc(-10 * var(--u));
+  height: 3px;
+  background: #ffffff;
+  transform: skewX(var(--lean));
 }
 
 /* Right side, over the track. */
@@ -1101,7 +1123,7 @@ kbd,
 }
 
 .menu-map line {
-  stroke: var(--menu-red);
+  stroke: var(--red);
   stroke-width: 7;
 }
 
@@ -1127,7 +1149,7 @@ kbd,
 
 /* Your record: purple, as the fastest time on a timing screen. */
 .menu-stats-record {
-  color: #b98aff;
+  color: var(--purple);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1138,6 +1160,7 @@ kbd,
   font-stretch: 100%;
 }
 
+/* The sessions: in the leaning column (.menu-right), so the buttons come out slanted, with one left edge. */
 .menu-sessions {
   display: grid;
   justify-items: start;
@@ -1159,15 +1182,26 @@ kbd,
   text-align: left;
   transition:
     background 0.12s,
-    transform 0.08s;
+    transform 0.18s ease-out;
 }
 
+/* Hover: the button slides a little to the right, as if pulling out of the line. */
 .menu-session:hover {
   background: rgba(255, 255, 255, 0.14);
+  transform: translateX(calc(8 * var(--u)));
 }
 
 .menu-session:active {
-  transform: translateY(1px);
+  transform: translateX(calc(8 * var(--u))) translateY(1px);
+}
+
+/* The arrows lean like the logo too. */
+.menu-arrow {
+  transform: skewX(var(--lean));
+}
+
+.menu-arrow > svg {
+  transform: skewX(calc(-1 * var(--lean)));
 }
 
 .menu-session-main {
@@ -1175,11 +1209,11 @@ kbd,
   margin-top: calc(12 * var(--u));
   padding-block: calc(14 * var(--u));
   border: 0;
-  background: var(--menu-red);
+  background: var(--red);
 }
 
 .menu-session-main:hover {
-  background: #e01a37;
+  background: var(--red-hover);
 }
 
 .menu-session-index {
@@ -1253,8 +1287,8 @@ kbd,
   justify-content: space-between;
   height: calc(48 * var(--u));
   padding: 0 calc(48 * var(--u)) 0 calc(64 * var(--u));
-  background: var(--menu-ink);
-  color: #b4b4bb;
+  background: var(--carbon);
+  color: var(--grey);
   font-size: calc(13 * var(--u));
   animation: menu-fade 0.55s ease both;
 }
@@ -1327,10 +1361,15 @@ kbd,
 
   .menu-brand,
   .menu-car-head,
-  .menu-picker,
+  .menu-tiles,
   .menu-car {
     position: static;
     width: auto;
+  }
+
+  /* Tap a car below instead. */
+  .menu-arrow {
+    display: none;
   }
 
   .menu-car-name {
@@ -1345,13 +1384,9 @@ kbd,
     height: 32svh;
   }
 
-  .menu-tile {
-    flex: 1;
-    width: auto;
-  }
-
   .menu-tiles {
-    flex: 1;
+    justify-content: center;
+    padding-bottom: 12px;
   }
 
   .menu-right {
@@ -1359,8 +1394,16 @@ kbd,
     flex: none;
     width: auto;
     padding: 24px 16px 32px;
-    background: var(--menu-ink);
+    background: var(--carbon);
     animation: none;
+    transform: none;
+  }
+
+  .menu-track > *,
+  .menu-sessions > .menu-eyebrow,
+  .menu-sessions > .menu-preview,
+  .menu-session > * {
+    transform: none;
   }
 
   .menu-hints {
@@ -1378,6 +1421,7 @@ kbd,
 
   .menu-arrow,
   .menu-tile,
+  .menu-tile img,
   .menu-session,
   .menu-preview span {
     transition: none;

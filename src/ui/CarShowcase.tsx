@@ -140,6 +140,8 @@ const quadVertex = /* glsl */ `
 
 /** The menu's red. Same as --menu-red in index.css. */
 export const MENU_RED = '#d0142f'
+/** The menu's one slant, from the logo's slashes: 8 across for 26 up (about 17°). Same as --menu-lean in index.css. */
+export const MENU_LEAN = 8 / 26
 const NARROW = 860 // px; below this the menu stacks (index.css)
 
 /** index.css's --u: 1px at 1280 × 720, scaling with the screen. */
@@ -166,10 +168,10 @@ function paintBackdrop(width: number, height: number, number: string) {
   g.clearRect(0, 0, width, height)
   const u = menuUnit(width, height)
 
-  // Where the cut runs: through the middle of the screen, at the menu's angle (1 across for 3 down).
+  // Where the cut runs: through the middle of the screen, at the menu's slant.
   const narrow = width < NARROW
-  const top = narrow ? width * 2 : width / 2 + height / 6
-  const bottom = top - height / 3
+  const top = narrow ? width * 2 : width / 2 + (height * MENU_LEAN) / 2
+  const bottom = top - height * MENU_LEAN
   const field = new Path2D()
   field.moveTo(0, 0)
   field.lineTo(top, 0)

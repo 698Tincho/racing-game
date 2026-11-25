@@ -2,7 +2,7 @@ import type { AnimationEvent, MouseEvent } from 'react'
 import { CARS, carRenderUrl, type CarId } from '../game/cars'
 import { ATTEMPTS, formatTime, useGame } from '../game/race/store'
 import { track } from '../game/track/layout'
-import { showcaseSlot } from './CarShowcase'
+import { MENU_LEAN, showcaseSlot } from './CarShowcase'
 import { Key, WasdKeys } from './Key'
 
 // The pictures in the car picker, fetched while the game loads so the menu shows them straight away.
@@ -59,7 +59,7 @@ export function MainMenu() {
 
 // The logo is drawn on the slashes' grid: 26 tall, each slash leaning 8 across.
 const LOGO_HEIGHT = 26
-const LEAN_DEG = (Math.atan(8 / 26) * 180) / Math.PI // about 17°
+const LEAN_DEG = (Math.atan(MENU_LEAN) * 180) / Math.PI // about 17°: 8 across for 26 up
 // Archivo's capital height as a share of its size (measured): sized so RACING's capitals are as tall as the slashes.
 const CAP_HEIGHT = 0.688
 const WORD_X = 37 // where RACING starts, the same gap after the slashes as between them
@@ -112,17 +112,23 @@ function CarHeading() {
   )
 }
 
-/** Arrows either side of a tile per car. Keys: ← →, or 1–3. */
+/**
+ * Arrows either side of the big car, and the cars in a row underneath, the
+ * chosen one a little bigger. Keys: ← →, or 1–3.
+ */
 function CarPicker() {
   const carId = useGame((s) => s.carId)
   const setCar = useGame((s) => s.setCar)
   return (
-    <div className="menu-picker">
-      <button className="menu-arrow" aria-label="Previous car" onMouseDown={keepFocus} onClick={() => setCar(nextCar(carId, -1))}>
+    <>
+      <button className="menu-arrow menu-arrow-prev" aria-label="Previous car" onMouseDown={keepFocus} onClick={() => setCar(nextCar(carId, -1))}>
         <Chevron dir="left" />
       </button>
+      <button className="menu-arrow menu-arrow-next" aria-label="Next car" onMouseDown={keepFocus} onClick={() => setCar(nextCar(carId, 1))}>
+        <Chevron dir="right" />
+      </button>
       <div className="menu-tiles" role="radiogroup" aria-label="Choose your car">
-        {CARS.map((car, i) => (
+        {CARS.map((car) => (
           <button
             key={car.id}
             className={`menu-tile ${car.id === carId ? 'is-on' : ''}`}
@@ -133,14 +139,10 @@ function CarPicker() {
             onClick={() => setCar(car.id)}
           >
             <img src={carRenderUrl(car.id)} alt="" />
-            <span className="menu-tile-key">{i + 1}</span>
           </button>
         ))}
       </div>
-      <button className="menu-arrow" aria-label="Next car" onMouseDown={keepFocus} onClick={() => setCar(nextCar(carId, 1))}>
-        <Chevron dir="right" />
-      </button>
-    </div>
+    </>
   )
 }
 
