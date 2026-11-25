@@ -2,13 +2,13 @@ import { useEffect } from 'react'
 import { ATTEMPTS, bestOf, formatDelta, formatTime, useGame } from '../game/race/store'
 import { playUiSound } from '../game/audio/sound'
 import { CARS } from '../game/cars'
-import { MainMenu } from './MainMenu'
+import { MainMenu, nextCar } from './MainMenu'
 import { Loading } from './Loading'
 import { useLoading } from '../game/loading'
 
 /**
  * Menu, the between-laps screen in qualy, and results.
- * Keys: Enter = start qualy / next attempt, P = practice, 1-3 = car, V = view the track,
+ * Keys: Enter = start qualy / next attempt, P = practice, 1-3 or ← → = car, V = view the track,
  * G = ghost on/off, Esc = menu (or stop viewing).
  */
 export function Screens() {
@@ -32,8 +32,11 @@ export function Screens() {
         return
       }
       if (phase === 'menu') {
+        const { carId, setCar } = useGame.getState()
         const picked = CARS[Number(e.code.replace('Digit', '')) - 1]
-        if (e.code.startsWith('Digit') && picked) useGame.getState().setCar(picked.id)
+        if (e.code.startsWith('Digit') && picked) setCar(picked.id)
+        if (e.code === 'ArrowLeft') setCar(nextCar(carId, -1))
+        if (e.code === 'ArrowRight') setCar(nextCar(carId, 1))
       }
       if (phase === 'menu' || phase === 'results') {
         if (confirm) {

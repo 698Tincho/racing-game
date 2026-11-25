@@ -3,7 +3,7 @@ import { createPortal, useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { KartModel, type KartMotion } from '../game/KartModel'
-import { carUrl } from '../game/cars'
+import { CARS, carUrl } from '../game/cars'
 import { useGame } from '../game/race/store'
 import { PALETTE } from '../game/scene/palette'
 import { Ready } from '../game/Ready'
@@ -14,16 +14,16 @@ import { useLoading } from '../game/loading'
 // canvas of its own (two WebGL canvases on one page halve the frame rate):
 // the turntable is a small scene of its own, rendered each frame into a
 // texture and laid over the main view where the menu leaves room for it.
-// The menu's shade is drawn here too, under the car, so it doesn't dim it.
+// The menu's backdrop (the red field, the diagonal cut, the big race number)
+// is drawn here too, under the car, so the car sits on top of it.
 // ---------------------------------------------------------------------------
 
 const TURN_SPEED = 0.32 // radians per second
 const CHANGE_SPIN = 3.2 // extra speed when you pick another car, fading out
-const PLINTH_RADIUS = 2.4
-const RING_THICKNESS = 0.07
-const PLINTH_TOP = 0.14
+const FLOOR_RADIUS = 2.6 // the invisible floor that catches the car's shadow
 const START_ANGLE = -0.55
-const CAMERA = new THREE.Vector3(6.1, 3.5, 8.1)
+// Close in, so the car fills its box on the red field (the box is wide and short).
+const CAMERA = new THREE.Vector3(3.0, 1.9, 4.0)
 const LOOK_AT = new THREE.Vector3(0, 0.42, 0)
 const FIT_ASPECT = 1.45 // narrower than this and the camera backs off
 
@@ -85,14 +85,12 @@ function Turntable() {
       />
       <directionalLight color={PALETTE.sun} intensity={1.5} position={[5, 2.5, -6]} />
       <group ref={table} rotation-y={START_ANGLE}>
-        <mesh position-y={PLINTH_TOP / 2} receiveShadow>
-          <cylinderGeometry args={[PLINTH_RADIUS - 0.14, PLINTH_RADIUS - 0.06, PLINTH_TOP, 56]} />
-          <meshStandardMaterial color="#26262e" roughness={0.85} />
+        {/* No plinth: the car stands on the red field, only its shadow shows. */}
+        <mesh rotation-x={-Math.PI / 2} position-y={0.002} receiveShadow>
+          <circleGeometry args={[FLOOR_RADIUS, 48]} />
+          <shadowMaterial opacity={0.42} color="#2a0006" />
         </mesh>
-        <RedRing />
-        <group position-y={PLINTH_TOP}>
-          <KartModel motion={POSE} />
-        </group>
+        <KartModel motion={POSE} />
       </group>
       <Suspense fallback={null}>
         <CarReady />
@@ -108,16 +106,6 @@ function CarReady() {
     performance.mark('car-shown') // (handy for checking load times)
   }, [])
   return <Ready id="car" />
-}
-
-/** A red ring round the edge, lit a little so it reads against the dark plinth. */
-function RedRing() {
-  return (
-    <mesh position-y={PLINTH_TOP} rotation-x={Math.PI / 2}>
-      <torusGeometry args={[PLINTH_RADIUS - 0.1, RING_THICKNESS, 12, 96]} />
-      <meshStandardMaterial color="#e5172f" emissive="#e5172f" emissiveIntensity={0.55} roughness={0.4} />
-    </mesh>
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -143,21 +131,104 @@ const quadVertex = /* glsl */ `
   }
 `
 
-/** The menu's shade: carbon, darker towards the bottom. */
+// ---------------------------------------------------------------------------
+// The backdrop: painted with the 2D canvas API into a texture the size of the
+// screen, and only repainted when the screen size or the car changes. Its
+// geometry follows the menu's layout in index.css: designed at 1280 × 720,
+// scaled by the same unit (--u).
+// ---------------------------------------------------------------------------
+
+/** The menu's red. Same as --menu-red in index.css. */
+export const MENU_RED = '#d0142f'
+const NARROW = 860 // px; below this the menu stacks (index.css)
+
+/** index.css's --u: 1px at 1280 × 720, scaling with the screen. */
+export const menuUnit = (width: number, height: number) => THREE.MathUtils.clamp(Math.min(width / 1280, height / 720), 0.85, 1.6)
+
+const paper = document.createElement('canvas')
+const paint = paper.getContext('2d')!
+const backdropTexture = new THREE.CanvasTexture(paper)
+backdropTexture.generateMipmaps = false
+backdropTexture.minFilter = THREE.LinearFilter
+const painted = { key: '' }
+// The race number is set in Archivo; repaint once it has loaded.
+document.fonts?.load('900 100px "Archivo Variable"').then(() => (painted.key = ''))
+
+function paintBackdrop(width: number, height: number, number: string) {
+  const ratio = Math.min(window.devicePixelRatio || 1, 1.5)
+  const key = `${width}x${height}@${ratio}:${number}`
+  if (painted.key === key) return
+  painted.key = key
+  paper.width = Math.round(width * ratio)
+  paper.height = Math.round(height * ratio)
+  const g = paint
+  g.setTransform(ratio, 0, 0, ratio, 0, 0)
+  g.clearRect(0, 0, width, height)
+  const u = menuUnit(width, height)
+
+  // Where the cut runs: through the middle of the screen, at the menu's angle (1 across for 3 down).
+  const narrow = width < NARROW
+  const top = narrow ? width * 2 : width / 2 + height / 6
+  const bottom = top - height / 3
+  const field = new Path2D()
+  field.moveTo(0, 0)
+  field.lineTo(top, 0)
+  field.lineTo(bottom, height)
+  field.lineTo(0, height)
+  field.closePath()
+
+  // The track side: the live scene shows through, darkened. Then the solid red field over it.
+  g.fillStyle = 'rgba(14, 14, 18, 0.7)'
+  g.fillRect(0, 0, width, height)
+  g.fillStyle = MENU_RED
+  g.fill(field)
+
+  // The race number, huge and faint, behind the car.
+  g.save()
+  g.clip(field)
+  const size = (narrow ? 0.42 * width : 380 * u)
+  g.font = `900 ${size}px "Archivo Variable", sans-serif`
+  ;(g as CanvasRenderingContext2D & { fontStretch?: string }).fontStretch = 'expanded'
+  ;(g as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = `${-0.03 * size}px`
+  g.fillStyle = 'rgba(0, 0, 0, 0.09)'
+  g.textBaseline = 'alphabetic'
+  g.fillText(number, narrow ? 12 : 36 * u, narrow ? 0.38 * height : 168 * u + 0.74 * size)
+  g.restore()
+
+  if (!narrow) {
+    // A lighter band and a white line down the cut, like a broadcast wipe.
+    const band = (from: number, to: number) => {
+      g.beginPath()
+      g.moveTo(top + from * u, 0)
+      g.lineTo(top + to * u, 0)
+      g.lineTo(bottom + to * u, height)
+      g.lineTo(bottom + from * u, height)
+      g.closePath()
+      g.fill()
+    }
+    g.fillStyle = 'rgba(255, 255, 255, 0.12)'
+    band(-100, 0)
+    g.fillStyle = '#ffffff'
+    band(-4, 2)
+  }
+  backdropTexture.needsUpdate = true
+}
+
 const shade = new THREE.Mesh(
   new THREE.PlaneGeometry(2, 2),
   new THREE.ShaderMaterial({
     vertexShader: quadVertex,
     fragmentShader: /* glsl */ `
+      uniform sampler2D map;
       uniform float opacity;
       varying vec2 vUv;
       void main() {
-        float a = vUv.y < 0.52 ? mix(0.9, 0.42, vUv.y / 0.52) : mix(0.42, 0.2, (vUv.y - 0.52) / 0.48);
-        // Already in screen colours: the menu's carbon (#111116).
-        gl_FragColor = vec4(17.0 / 255.0, 17.0 / 255.0, 22.0 / 255.0, a * opacity);
+        // Already in screen colours: painted in CSS colours, shown as they are.
+        vec4 texel = texture2D(map, vUv);
+        gl_FragColor = vec4(texel.rgb, texel.a * opacity);
       }
     `,
-    uniforms: { rect: { value: new THREE.Vector4(-1, -1, 1, 1) }, opacity: { value: 1 } },
+    uniforms: { rect: { value: new THREE.Vector4(-1, -1, 1, 1) }, map: { value: backdropTexture }, opacity: { value: 1 } },
     transparent: true,
     depthTest: false,
     depthWrite: false,
@@ -207,7 +278,7 @@ const clearColor = new THREE.Color()
 const opacityOf = (element: Element | null, pseudo?: string) => (element ? Number(getComputedStyle(element, pseudo).opacity) : 1)
 
 /**
- * Lays the menu's shade and car over the frame just drawn. Follows the menu's
+ * Lays the menu's backdrop and car over the frame just drawn. Follows the menu's
  * box as it slides and fades (it reads the box and its opacity every frame).
  */
 export function drawShowcase(gl: THREE.WebGLRenderer, camera: THREE.Camera) {
@@ -228,7 +299,9 @@ export function drawShowcase(gl: THREE.WebGLRenderer, camera: THREE.Camera) {
   const canvas = gl.domElement.getBoundingClientRect()
   const box = slot.getBoundingClientRect()
 
-  // The shade, over the whole view.
+  // The backdrop, over the whole view, with the selected car's number.
+  const number = CARS.find((c) => c.id === useGame.getState().carId)?.number ?? ''
+  paintBackdrop(canvas.width, canvas.height, number)
   shade.material.uniforms.opacity.value = opacityOf(slot.closest('.menu'), '::before')
 
   // The car, rendered at the box's size into the texture.
@@ -260,7 +333,7 @@ export function drawShowcase(gl: THREE.WebGLRenderer, camera: THREE.Camera) {
     const x = (px: number) => ((px - canvas.left) / canvas.width) * 2 - 1
     const y = (py: number) => 1 - ((py - canvas.top) / canvas.height) * 2
     car.material.uniforms.rect.value.set(x(box.left), y(box.bottom), x(box.right), y(box.top))
-    car.material.uniforms.opacity.value = opacityOf(slot.closest('.menu-stage'))
+    car.material.uniforms.opacity.value = opacityOf(slot.closest('.menu-left'))
   }
 
   const autoClear = gl.autoClear

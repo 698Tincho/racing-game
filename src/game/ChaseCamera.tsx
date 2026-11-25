@@ -18,6 +18,9 @@ const focusWanted = new THREE.Vector3()
 const ORBIT_SPEED = 0.06 // rad/s
 const ORBIT_RADIUS = Math.max(board.width, board.depth) * 0.6
 const ORBIT_HEIGHT = Math.max(board.width, board.depth) * 0.45
+const MENU_ZOOM_OUT = 1.35
+const MENU_SHIFT = 0.25 // of the screen's width: the middle of the right half
+const MENU_SPLIT_MIN_WIDTH = 860 // narrower, the menu stacks and the whole screen is red (index.css)
 
 const PATH_STEP = Math.hypot(track.path[1].x - track.path[0].x, track.path[1].z - track.path[0].z)
 const SAMPLES_AHEAD = Math.max(1, Math.round(T.high.trackAhead / PATH_STEP))
@@ -42,11 +45,24 @@ export function ChaseCamera() {
   const viewYaw = useRef(0)
   const focus = useRef(new THREE.Vector3())
   const distance = useRef<number>(T.high.distanceSlow)
+  const menuShift = useRef(0)
 
   useFrame((state, delta) => {
     const cam = state.camera as THREE.PerspectiveCamera
     const dt = frameStep(delta)
     const { phase, viewing, leavingMenu, cameraView } = useGame.getState()
+    // On the menu the left half of the screen is the red car panel, so the
+    // picture is shifted right to centre the track in the half you can see.
+    // It slides back to the middle as the menu leaves.
+    const onMenu = phase === 'menu' && !viewing && !leavingMenu && window.innerWidth >= MENU_SPLIT_MIN_WIDTH
+    // (Straight to the middle once a race starts: the camera cuts to the car anyway.)
+    menuShift.current = phase === 'menu' ? lerp(menuShift.current, onMenu ? MENU_SHIFT : 0, 1 - Math.exp(-7 * dt)) : 0
+    const shift = menuShift.current < 0.001 ? 0 : menuShift.current
+    const filmOffset = -shift * 2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * cam.aspect * cam.getFilmWidth()
+    if (cam.filmOffset !== filmOffset) {
+      cam.filmOffset = filmOffset
+      cam.updateProjectionMatrix()
+    }
     // Looking around the track: the orbit controls have the camera. While the
     // menu slides away on the way there, it holds still.
     if (viewing || leavingMenu) return
@@ -55,7 +71,13 @@ export function ChaseCamera() {
     if (phase === 'menu' || phase === 'results') {
       orbitAngle.current += ORBIT_SPEED * dt
       const a = orbitAngle.current
-      desired.set(board.centerX + Math.cos(a) * ORBIT_RADIUS, ORBIT_HEIGHT, board.centerZ + Math.sin(a) * ORBIT_RADIUS)
+      // Further out on the menu, so the whole circuit fits in the right half.
+      const away = phase === 'menu' ? MENU_ZOOM_OUT : 1
+      desired.set(
+        board.centerX + Math.cos(a) * ORBIT_RADIUS * away,
+        ORBIT_HEIGHT * away,
+        board.centerZ + Math.sin(a) * ORBIT_RADIUS * away,
+      )
       lookAt.set(board.centerX, -2, board.centerZ)
       cam.position.lerp(desired, 1 - Math.exp(-1.5 * dt))
       look.current.lerp(lookAt, 1 - Math.exp(-1.5 * dt))
