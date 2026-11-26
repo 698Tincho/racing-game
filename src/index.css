@@ -25,6 +25,13 @@
   --yellow: #ffd21f;
   --lean: -17.1deg; /* MENU_LEAN in CarShowcase */
   --font: 'Archivo Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /*
+   * Headings only: the logo, the car's name, class and number, the circuit's name and figures, the
+   * session titles. One regular weight, so never let the browser fake a bold. All capitals, which
+   * sit 0.15 of the size below the top of a 1-high line and 0.15 above its bottom: with
+   * line-height 0.7 (the capital height) the box hugs the letters, so margins are the real gaps.
+   */
+  --font-heading: 'BBH Bartle', 'Archivo Variable', system-ui, sans-serif;
 }
 
 html,
@@ -444,6 +451,7 @@ kbd,
   margin: 0;
   color: var(--grey);
   font-size: 12px;
+  font-style: italic;
   font-weight: 700;
   letter-spacing: 0.24em;
   text-transform: uppercase;
@@ -631,9 +639,10 @@ kbd,
 
 .garage-ui h1 {
   margin: 0 0 12px;
-  font-size: 38px;
-  font-weight: 900;
-  font-stretch: 62%;
+  font-family: var(--font-heading);
+  font-size: 26px;
+  font-weight: 400;
+  font-synthesis: none;
   line-height: 1;
   text-transform: uppercase;
 }
@@ -810,8 +819,8 @@ kbd,
 
 .menu-track > *,
 .menu-sessions > .menu-eyebrow,
-.menu-sessions > .menu-preview,
-.menu-session > * {
+.menu-session > *,
+.menu-session-text > * {
   transform: skewX(calc(-1 * var(--lean)));
 }
 
@@ -879,17 +888,16 @@ kbd,
 }
 
 .menu-brand svg {
-  height: calc(30 * var(--u));
+  height: calc(20 * var(--u));
   width: auto;
   overflow: visible;
   fill: #ffffff;
 }
 
 .menu-brand text {
-  font-family: var(--font);
-  font-weight: 900;
-  font-stretch: 62%;
-  letter-spacing: 0.01em;
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-synthesis: none;
 }
 
 /* A small tracked label, with a short rule after it. */
@@ -899,6 +907,7 @@ kbd,
   gap: calc(12 * var(--u));
   margin: 0;
   font-size: calc(12 * var(--u));
+  font-style: italic;
   font-weight: 700;
   letter-spacing: 0.24em;
   text-transform: uppercase;
@@ -919,30 +928,30 @@ kbd,
 }
 
 .menu-car-name {
-  margin: calc(12 * var(--u)) 0 0;
-  font-size: calc(76 * var(--u));
-  font-weight: 900;
-  font-stretch: 62%;
-  line-height: 0.9;
-  letter-spacing: -0.005em;
+  margin: calc(16 * var(--u)) 0 0;
+  font-family: var(--font-heading);
+  font-size: calc(42 * var(--u)); /* "#07 SCARLET", the longest, on one line in 560 */
+  font-weight: 400;
+  font-synthesis: none;
+  line-height: 0.7; /* BBH Bartle's capital height: the box hugs the letters (see --font-heading) */
   text-transform: uppercase;
 }
 
 /* The car's class, in outline, wide. */
 .menu-car-kind {
-  margin: calc(6 * var(--u)) 0 0;
+  margin: calc(10 * var(--u)) 0 0;
   color: transparent;
-  font-size: calc(36 * var(--u));
-  font-weight: 800;
-  font-stretch: 125%;
-  line-height: 1;
-  letter-spacing: 0.02em;
+  font-family: var(--font-heading);
+  font-size: calc(30 * var(--u));
+  font-weight: 400;
+  font-synthesis: none;
+  line-height: 0.7;
   text-transform: uppercase;
-  -webkit-text-stroke: 1.4px #ffffff;
+  -webkit-text-stroke: 1.2px #ffffff;
 }
 
 .menu-car-note {
-  margin: calc(14 * var(--u)) 0 0;
+  margin: calc(10 * var(--u)) 0 0;
   font-size: calc(14 * var(--u));
   line-height: 1.43;
 }
@@ -1043,21 +1052,17 @@ kbd,
 }
 
 /* Right side, over the track. */
-.menu-eyebrow,
-.menu-stats dt {
-  color: rgba(255, 255, 255, 0.78);
-}
-
-.menu-left .menu-eyebrow {
+.menu-eyebrow {
   color: #ffffff;
 }
 
 .menu-track-name {
-  margin: calc(12 * var(--u)) 0 0;
-  font-size: calc(44 * var(--u));
-  font-weight: 900;
-  font-stretch: 62%;
-  line-height: 0.9;
+  margin: calc(16 * var(--u)) 0 0;
+  font-family: var(--font-heading);
+  font-size: calc(34 * var(--u));
+  font-weight: 400;
+  font-synthesis: none;
+  line-height: 0.7;
   text-transform: uppercase;
 }
 
@@ -1068,12 +1073,39 @@ kbd,
   margin-top: calc(18 * var(--u));
 }
 
+/* The map: a button into the track preview. On hover the outline turns red and grows a touch. */
 .menu-map {
   flex: none;
   width: calc(200 * var(--u));
   height: calc(150 * var(--u));
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.menu-map svg {
+  display: block;
+  width: 100%;
+  height: 100%;
   fill: none;
   stroke-linejoin: round;
+  transition: transform 0.18s ease-out;
+}
+
+.menu-map path {
+  transition: stroke 0.15s;
+}
+
+.menu-map:hover svg {
+  transform: scale(1.04);
+}
+
+.menu-map:hover path {
+  stroke: var(--red);
+}
+
+.menu-map:hover line {
+  stroke: #ffffff;
 }
 
 .menu-map path {
@@ -1088,22 +1120,28 @@ kbd,
 
 .menu-stats {
   display: grid;
-  gap: calc(10 * var(--u));
+  gap: calc(12 * var(--u));
   margin: 0;
 }
 
+/* The labels, like the eyebrows: white, italic, tracked out. */
 .menu-stats dt {
+  color: #ffffff;
   font-size: calc(12 * var(--u));
+  font-style: italic;
   font-weight: 700;
+  line-height: 1;
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
 
+/* The figures, tight under their label: a 0.7 line height hugs the capitals and figures. */
 .menu-stats dd {
-  margin: calc(2 * var(--u)) 0 0;
+  margin: calc(6 * var(--u)) 0 0;
   font-size: calc(20 * var(--u));
   font-weight: 800;
   font-stretch: 75%;
+  line-height: 0.7;
 }
 
 /* Your record: purple, as the fastest time on a timing screen. */
@@ -1112,11 +1150,21 @@ kbd,
   font-variant-numeric: tabular-nums;
 }
 
+/* Just the figures in the heading face; units and words stay in Archivo. */
+.menu-stats-num {
+  font-family: var(--font-heading);
+  font-size: 0.9em;
+  font-weight: 400;
+  font-stretch: normal;
+  font-synthesis: none;
+}
+
 .menu-stats .menu-stats-empty {
   color: rgba(255, 255, 255, 0.78);
   font-size: calc(15 * var(--u));
   font-weight: 600;
   font-stretch: 100%;
+  line-height: 1;
 }
 
 /* The sessions: in the leaning column (.menu-right), so the buttons come out slanted, with one left edge. */
@@ -1126,11 +1174,17 @@ kbd,
   margin-top: calc(30 * var(--u));
 }
 
+/*
+ * A grid of number | title | key over a second row for the description, so the number
+ * shares the title's row and their tops line up; the whole lot is centred in the button.
+ */
 .menu-session {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: calc(14 * var(--u));
+  grid-template-rows: auto auto;
+  align-content: center;
+  align-items: start;
+  gap: calc(4 * var(--u)) calc(14 * var(--u));
   width: 100%;
   min-height: calc(72 * var(--u));
   margin-top: calc(10 * var(--u));
@@ -1175,12 +1229,15 @@ kbd,
   background: var(--red-hover);
 }
 
+/* 01 / 02: in the heading face, their tops level with the title's (both boxes hug their capitals). */
 .menu-session-index {
   align-self: start;
-  padding-top: calc(4 * var(--u));
   color: rgba(255, 255, 255, 0.78);
+  font-family: var(--font-heading);
   font-size: calc(13 * var(--u));
-  font-weight: 700;
+  font-weight: 400;
+  font-synthesis: none;
+  line-height: 0.7;
 }
 
 .menu-session-main .menu-session-index {
@@ -1188,20 +1245,37 @@ kbd,
 }
 
 .menu-session-text {
-  display: grid;
-  gap: calc(3 * var(--u));
+  display: contents;
+}
+
+.menu-session-index,
+.menu-session-text strong {
+  grid-row: 1;
+}
+
+.menu-session-text small {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.menu-session .key-cap {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  align-self: center;
 }
 
 .menu-session-text strong {
-  font-size: calc(26 * var(--u));
-  font-weight: 900;
-  font-stretch: 62%;
-  line-height: 0.95;
+  font-family: var(--font-heading);
+  font-size: calc(20 * var(--u));
+  font-weight: 400;
+  font-synthesis: none;
+  line-height: 0.7;
   text-transform: uppercase;
 }
 
+/* BBH Bartle is wide: QUALIFYING at 22 fits the button beside its number and key. */
 .menu-session-main .menu-session-text strong {
-  font-size: calc(32 * var(--u));
+  font-size: calc(22 * var(--u));
 }
 
 .menu-session-text small {
@@ -1214,29 +1288,7 @@ kbd,
   color: #ffffff;
 }
 
-.menu-preview {
-  display: flex;
-  align-items: center;
-  gap: calc(10 * var(--u));
-  margin-top: calc(18 * var(--u));
-  padding: calc(4 * var(--u)) 0;
-  background: none;
-  color: #ffffff;
-  font-size: calc(15 * var(--u));
-  font-weight: 600;
-}
-
-.menu-preview span {
-  box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.35);
-  transition: box-shadow 0.12s;
-}
-
-.menu-preview:hover span {
-  box-shadow: inset 0 -2px 0 #ffffff;
-}
-
-/* Every key the menu answers to, on a dark bar along the bottom. */
-/* Hidden until the mouse moves (MainMenu), then gone again after a few still seconds. */
+/* Hidden until the mouse cursor comes near the bottom of the screen (MainMenu). */
 .menu-hints {
   position: absolute;
   left: 0;
@@ -1370,8 +1422,8 @@ kbd,
 
   .menu-track > *,
   .menu-sessions > .menu-eyebrow,
-  .menu-sessions > .menu-preview,
-  .menu-session > * {
+  .menu-session > *,
+  .menu-session-text > * {
     transform: none;
   }
 
@@ -1392,7 +1444,8 @@ kbd,
   .menu-tile,
   .menu-tile img,
   .menu-session,
-  .menu-preview span {
+  .menu-map svg,
+  .menu-map path {
     transition: none;
   }
 }

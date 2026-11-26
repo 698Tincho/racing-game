@@ -153,12 +153,15 @@ const backdropTexture = new THREE.CanvasTexture(paper)
 backdropTexture.generateMipmaps = false
 backdropTexture.minFilter = THREE.LinearFilter
 const painted = { key: '' }
-// The race number is set in Archivo; repaint once it has loaded.
-document.fonts?.load('900 100px "Archivo Variable"').then(() => (painted.key = ''))
+// The race number is set in the heading face, BBH Bartle; repaint once it has loaded.
+document.fonts?.load('400 100px "BBH Bartle"').then(() => (painted.key = ''))
 
-function paintBackdrop(width: number, height: number, number: string) {
+/** `car`: the box the car is drawn in, in the canvas's pixels. The race number is centred on it. */
+function paintBackdrop(width: number, height: number, number: string, car: { x: number; y: number; width: number; height: number }) {
   const ratio = Math.min(window.devicePixelRatio || 1, 1.5)
-  const key = `${width}x${height}@${ratio}:${number}`
+  const carX = Math.round(car.x + car.width / 2)
+  const carY = Math.round(car.y + car.height / 2)
+  const key = `${width}x${height}@${ratio}:${number}:${carX},${carY}`
   if (painted.key === key) return
   painted.key = key
   paper.width = Math.round(width * ratio)
@@ -188,13 +191,15 @@ function paintBackdrop(width: number, height: number, number: string) {
   // The race number, huge and faint, behind the car.
   g.save()
   g.clip(field)
-  const size = (narrow ? 0.42 * width : 380 * u)
-  g.font = `900 ${size}px "Archivo Variable", sans-serif`
-  ;(g as CanvasRenderingContext2D & { fontStretch?: string }).fontStretch = 'expanded'
-  ;(g as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = `${-0.03 * size}px`
-  g.fillStyle = 'rgba(0, 0, 0, 0.09)'
+  // Centred on the car. A wide face (two digits are about 2.6 times its size across), sized so
+  // they just fit the red side around it.
+  const size = narrow ? 0.34 * width : 260 * u
+  g.font = `400 ${size}px "BBH Bartle", "Archivo Variable", sans-serif`
+  g.fillStyle = 'rgba(0, 0, 0, 0.12)'
+  g.textAlign = 'center'
   g.textBaseline = 'alphabetic'
-  g.fillText(number, narrow ? 12 : 36 * u, narrow ? 0.38 * height : 168 * u + 0.74 * size)
+  // Its figures are 0.7 of its size tall: half that below the car's middle puts them centred on it.
+  g.fillText(number, carX, carY + 0.35 * size)
   g.restore()
 
   if (!narrow) {
@@ -303,7 +308,7 @@ export function drawShowcase(gl: THREE.WebGLRenderer, camera: THREE.Camera) {
 
   // The backdrop, over the whole view, with the selected car's number.
   const number = CARS.find((c) => c.id === useGame.getState().carId)?.number ?? ''
-  paintBackdrop(canvas.width, canvas.height, number)
+  paintBackdrop(canvas.width, canvas.height, number, { x: box.left - canvas.left, y: box.top - canvas.top, width: box.width, height: box.height })
   shade.material.uniforms.opacity.value = opacityOf(slot.closest('.menu'), '::before')
 
   // The car, rendered at the box's size into the texture.

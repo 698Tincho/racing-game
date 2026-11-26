@@ -32,7 +32,7 @@ export const nextCar = (id: CarId, step: 1 | -1): CarId => {
 export function MainMenu() {
   const leaving = useGame((s) => s.leavingMenu)
   const setViewing = useGame((s) => s.setViewing)
-  const hints = useMouseActive()
+  const hints = useCursorNearBottom()
   // Once the left side has slid out (the right leaves at the same pace), show the track.
   const onLeftGone = (e: AnimationEvent) => {
     if (e.target === e.currentTarget && e.animationName === 'menu-leave-left') setViewing(true)
@@ -61,14 +61,14 @@ export function MainMenu() {
 // The logo is drawn on the slashes' grid: 26 tall, each slash leaning 8 across.
 const LOGO_HEIGHT = 26
 const LEAN_DEG = (Math.atan(MENU_LEAN) * 180) / Math.PI // about 17°: 8 across for 26 up
-// Archivo's capital height as a share of its size (measured): sized so RACING's capitals are as tall as the slashes.
-const CAP_HEIGHT = 0.688
+// The heading face's (BBH Bartle) capital height as a share of its size (measured): sized so RACING's capitals are as tall as the slashes.
+const CAP_HEIGHT = 0.7
 const WORD_X = 37 // where RACING starts, the same gap after the slashes as between them
-const WORD_WIDTH = 111 // its advance at that size, in the heading face (measured)
+const WORD_WIDTH = 287 // its advance at that size, in the heading face (measured)
 
 /**
- * The logo: three slashes fading out, then RACING in the heading face (Archivo,
- * condensed, black), slanted by exactly the slashes' angle and as tall as they are.
+ * The logo: three slashes fading out, then RACING in the heading face (BBH
+ * Bartle), slanted by exactly the slashes' angle and as tall as they are.
  */
 function Logo() {
   return (
@@ -90,36 +90,33 @@ function Logo() {
   )
 }
 
-const HINTS_IDLE_MS = 3000
+/** How close to the bottom of the screen the cursor has to come for the key hints to show, in px. */
+const HINTS_REVEAL_ZONE = 140
 
 /**
- * True while the mouse is moving, and for a few seconds after: the menu's key
- * hints show only then. Moves where the cursor stayed put don't count: the
- * browser sends those when what's under a still cursor changes (the hint bar
- * sliding in under it, say), and they'd keep the bar up for ever.
+ * True while the mouse cursor is near the bottom of the screen, where the
+ * menu's key hints are: they slide up as it approaches and away when it moves
+ * off or leaves the window. Touch never shows them (no keys to hint at).
  */
-function useMouseActive() {
-  const [active, setActive] = useState(false)
+function useCursorNearBottom() {
+  const [near, setNear] = useState(false)
   useEffect(() => {
-    let timer = 0
-    let lastX = NaN
-    let lastY = NaN
     const onMove = (e: PointerEvent) => {
       if (e.pointerType !== 'mouse') return
-      if (e.clientX === lastX && e.clientY === lastY) return
-      lastX = e.clientX
-      lastY = e.clientY
-      setActive(true)
-      window.clearTimeout(timer)
-      timer = window.setTimeout(() => setActive(false), HINTS_IDLE_MS)
+      setNear(e.clientY >= window.innerHeight - HINTS_REVEAL_ZONE)
+    }
+    // Out of the window (relatedTarget is null when the pointer leaves the page).
+    const onOut = (e: globalThis.MouseEvent) => {
+      if (!e.relatedTarget) setNear(false)
     }
     window.addEventListener('pointermove', onMove)
+    document.addEventListener('mouseout', onOut)
     return () => {
       window.removeEventListener('pointermove', onMove)
-      window.clearTimeout(timer)
+      document.removeEventListener('mouseout', onOut)
     }
   }, [])
-  return active
+  return near
 }
 
 function Eyebrow({ children }: { children: string }) {
@@ -212,30 +209,40 @@ const SECTORS = track.sectorEnds.length + 1
 
 function TrackCard() {
   const personalBest = useGame((s) => s.personalBest)
+  const viewTrack = useGame((s) => s.viewTrack)
   return (
     <div className="menu-track">
       <Eyebrow>Track</Eyebrow>
       <h2 className="menu-track-name">Circuit 01</h2>
       <div className="menu-track-body">
-        <svg className="menu-map" viewBox="0 0 240 180" role="img" aria-label="Map of Circuit 01">
-          <path d={MAP.line} />
-          <line x1={MAP.finish[0]} y1={MAP.finish[1]} x2={MAP.finish[2]} y2={MAP.finish[3]} />
-        </svg>
+        {/* The map is the way into the track preview (V does the same). */}
+        <button className="menu-map" aria-label="Preview Circuit 01" title="Preview the track (V)" onMouseDown={keepFocus} onClick={viewTrack}>
+          <svg viewBox="0 0 240 180" aria-hidden>
+            <path d={MAP.line} />
+            <line x1={MAP.finish[0]} y1={MAP.finish[1]} x2={MAP.finish[2]} y2={MAP.finish[3]} />
+          </svg>
+        </button>
         <dl className="menu-stats">
           <div>
             <dt>Length</dt>
-            <dd>{Math.round(track.length)} m</dd>
+            <dd>
+              <span className="menu-stats-num">{Math.round(track.length)}</span> m
+            </dd>
           </div>
           <div>
             <dt>Sectors</dt>
-            <dd>{SECTORS}</dd>
+            <dd>
+              <span className="menu-stats-num">{SECTORS}</span>
+            </dd>
           </div>
           <div>
             <dt>Your record</dt>
             {personalBest === null ? (
               <dd className="menu-stats-empty">No time yet</dd>
             ) : (
-              <dd className="menu-stats-record">{formatTime(personalBest)}</dd>
+              <dd className="menu-stats-record">
+                <span className="menu-stats-num">{formatTime(personalBest)}</span>
+              </dd>
             )}
           </div>
         </dl>
@@ -247,7 +254,6 @@ function TrackCard() {
 function Sessions() {
   const startQualy = useGame((s) => s.startQualy)
   const startPractice = useGame((s) => s.startPractice)
-  const viewTrack = useGame((s) => s.viewTrack)
   return (
     <div className="menu-sessions">
       <Eyebrow>Session</Eyebrow>
@@ -266,10 +272,6 @@ function Sessions() {
           <small>Unlimited laps. Times aren't saved.</small>
         </span>
         <Key>P</Key>
-      </button>
-      <button className="menu-preview" onMouseDown={keepFocus} onClick={viewTrack}>
-        <span>Preview the track</span>
-        <Key>V</Key>
       </button>
     </div>
   )

@@ -6,6 +6,9 @@ import { Garage } from './garage/Garage'
 // three-quarter width for times, expanded for the menu's race number.
 import '@fontsource-variable/archivo/wdth.css'
 import '@fontsource-variable/archivo/wdth-italic.css'
+// BBH Bartle, for headings only (one weight, capitals only): the logo, the car's name, class and big race
+// number, the circuit's name and the figures under it, and the session titles.
+import '@fontsource/bbh-bartle/400.css'
 import './index.css'
 
 createRoot(document.getElementById('root')!).render(
