@@ -2,7 +2,8 @@ import { memo, useLayoutEffect, useMemo, useRef } from 'react'
 import { CuboidCollider, RigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
 import { trackAsphalt, useRacingModel, useRacingPiece, useRacingPieces } from '../kit'
-import { BARRIER_HEIGHT, BARRIER_LENGTH, BARRIER_THICKNESS, RUNOFF_Y, TILE, inPitWall, perTrack, track } from './layout'
+import { BARRIER_HEIGHT, BARRIER_LENGTH, BARRIER_THICKNESS, RUNOFF_Y, TILE, inPitWall, perTrack, selectedCircuit, track } from './layout'
+import { circuitById } from './circuits'
 import { mergeParts, partsOf, type StaticPart } from '../scene/mergeStatic'
 import { PIECES } from './pieces'
 import { nearPitLane, pitLane } from './pitLane'
@@ -178,10 +179,16 @@ const BLOCK_GAP = 0.02 * TILE
 
 type Block = { x: number; z: number; yaw: number }
 
-/** Lines of barrier blocks along both sides and along the pit lane, alternating red and white. */
+/**
+ * Lines of barrier blocks along both sides and along the pit lane, alternating
+ * red and white. On a street circuit, a concrete wall instead: the kit's wall
+ * section cut to the same length, end to end.
+ */
 function Barriers() {
   const red = useRacingModel('barrierRed')
   const white = useRacingModel('barrierWhite')
+  const wall = useRacingModel('barrierWall')
+  const walls = circuitById(selectedCircuit()).walls
 
   const [reds, whites] = useMemo(() => {
     const r: Block[] = []
@@ -211,6 +218,7 @@ function Barriers() {
     return [r, w]
   }, [])
 
+  if (walls) return <BlockInstances model={wall} blocks={[...reds, ...whites]} length={WALL_SECTION} />
   return (
     <>
       <BlockInstances model={red} blocks={reds} />
@@ -219,8 +227,11 @@ function Barriers() {
   )
 }
 
+/** The wall model is a whole tile long: this much of it is one section, a touch longer than a block so they meet. */
+const WALL_SECTION = (BARRIER_LENGTH + BLOCK_GAP) / TILE + 0.01
+
 /** One instanced mesh per part of a barrier block model. */
-function BlockInstances({ model, blocks }: { model: THREE.Object3D; blocks: Block[] }) {
+function BlockInstances({ model, blocks, length = 1 }: { model: THREE.Object3D; blocks: Block[]; length?: number }) {
   const parts = useMemo(() => {
     model.updateMatrixWorld(true)
     const out: { geometry: THREE.BufferGeometry; material: THREE.Material; matrix: THREE.Matrix4 }[] = []
@@ -233,7 +244,7 @@ function BlockInstances({ model, blocks }: { model: THREE.Object3D; blocks: Bloc
   return (
     <>
       {parts.map((p, i) => (
-        <BlockPart key={i} {...p} blocks={blocks} />
+        <BlockPart key={i} {...p} blocks={blocks} length={length} />
       ))}
     </>
   )
@@ -244,11 +255,14 @@ function BlockPart({
   material,
   matrix,
   blocks,
+  length,
 }: {
   geometry: THREE.BufferGeometry
   material: THREE.Material
   matrix: THREE.Matrix4
   blocks: Block[]
+  /** How much of the model's length to use (it runs along its local x). */
+  length: number
 }) {
   const mesh = useRef<THREE.InstancedMesh>(null)
   useLayoutEffect(() => {
@@ -257,7 +271,7 @@ function BlockPart({
     const place = new THREE.Matrix4()
     const q = new THREE.Quaternion()
     const up = new THREE.Vector3(0, 1, 0)
-    const scale = new THREE.Vector3(TILE, TILE, TILE)
+    const scale = new THREE.Vector3(TILE * length, TILE, TILE)
     blocks.forEach((b, i) => {
       // The block's long side is its local x; turn it to run along the line.
       q.setFromAxisAngle(up, b.yaw + Math.PI / 2)
@@ -266,10 +280,11 @@ function BlockPart({
     })
     m.instanceMatrix.needsUpdate = true
     m.computeBoundingSphere()
-  }, [blocks, matrix])
+  }, [blocks, matrix, length])
   return <instancedMesh ref={mesh} args={[geometry, material, blocks.length]} castShadow receiveShadow />
 }
 
 for (const name of surfaceModels()) useRacingPiece.preload(name)
 useRacingModel.preload('barrierRed')
 useRacingModel.preload('barrierWhite')
+useRacingModel.preload('barrierWall')

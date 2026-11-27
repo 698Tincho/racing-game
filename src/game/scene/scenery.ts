@@ -3,6 +3,7 @@ import { FLOOR_Y, board } from './boardSize'
 import { nearPitLane, pitLane } from '../track/pitLane'
 import { circuitById } from '../track/circuits'
 import { buildForest, type Pool } from './forestScenery'
+import { buildCity } from './cityScenery'
 
 /**
  * What stands around the circuit, all from Kenney's Racing Kit, laid out
@@ -17,7 +18,8 @@ import { buildForest, type Pool } from './forestScenery'
  *   - trees outside the fence (the infield is left as open grass)
  * Anything that would land on (or too close to) the track is left out.
  * In the mountain forest the trees are the Nature Kit's instead, with rocks,
- * ridges and campsites (forestScenery.ts).
+ * ridges and campsites (forestScenery.ts); on the street circuit there are
+ * buildings and grandstands instead of trees (cityScenery.ts).
  *
  * Each model's front is its local +Z, so `yaw` is the direction it faces.
  */
@@ -25,7 +27,7 @@ import { buildForest, type Pool } from './forestScenery'
 export type Placement = {
   model: string
   /** Which Kenney kit it's from, when it's not the Racing Kit. */
-  kit?: 'nature'
+  kit?: 'nature' | 'city'
   x: number
   z: number
   /** Direction the model's front faces (yaw, three.js convention). */
@@ -311,12 +313,14 @@ function buildScenery(): Placement[] {
   const taken = (x: number, z: number, r: number) =>
     solid.some((p) => Math.hypot(p.x - x, p.z - z) < r + Math.max(p.width, p.depth) / 2)
 
-  if (circuitById(selectedCircuit()).venue === 'forest') {
+  const venue = circuitById(selectedCircuit()).venue
+  pool = null
+  if (venue === 'forest') {
     const forest = buildForest({ rand, taken, inParkingLot, inPaddock })
     pool = forest.pool
     return [...solid, ...forest.placements]
   }
-  pool = null
+  if (venue === 'city') return [...solid, ...buildCity({ rand, taken, inParkingLot, inPaddock })]
 
   // Trees: scattered over the outside of the circuit and in a thicker belt
   // further out, never in the infield or on top of anything.

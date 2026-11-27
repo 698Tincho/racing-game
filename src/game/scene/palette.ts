@@ -28,6 +28,8 @@ export type Palette = {
   ground: string | null
   /** Colours for the Nature Kit's materials, by name (forest venue only). */
   nature: Record<string, string>
+  /** The City Kit's windows glow this colour at night (null: dark, by day). */
+  windows: string | null
 
   concrete: string
   dust: string
@@ -57,6 +59,7 @@ const PARK: Venue = {
     lamp: '#ffd59a',
     ground: null,
     nature: {},
+    windows: null,
     concrete: '#a9aaa6',
     dust: '#efe4cf',
     tyreSmoke: '#d8d9dd',
@@ -110,6 +113,7 @@ const FOREST: Venue = {
       colorRed: '#c8453b',
       colorRedDark: '#a3362f',
     },
+    windows: null,
     concrete: '#a9aaa6',
     dust: '#e6dfcd',
     tyreSmoke: '#d8d9dd',
@@ -121,7 +125,38 @@ const FOREST: Venue = {
   sun: new THREE.Vector3(0.55, 0.62, -0.56).normalize(),
 }
 
-const VENUES = { park: PARK, forest: FOREST }
+/** The street circuit, at night: a deep blue sky with a glow from the city low down, lamps on, windows lit. */
+const CITY: Venue = {
+  palette: {
+    skyTop: '#060a1c',
+    skyMid: '#131a3a',
+    skyHorizon: '#4a3352',
+    skyBottom: '#17141f',
+    // The moon: cool, faint, high.
+    sun: '#a9b8ff',
+    sunGlow: '#5d6aa8',
+    sunIntensity: 0.7,
+    hemisphereSky: '#4a5a92',
+    hemisphereGround: '#221d2a',
+    hemisphereIntensity: 1.05,
+    reflections: '#1c2040',
+    lampsOn: true,
+    lamp: '#ffd59a',
+    // Paved: pavements and plazas between the buildings.
+    ground: '#5b5e66',
+    nature: {},
+    windows: '#ffcf86',
+    concrete: '#a9aaa6',
+    dust: '#cfc8bb',
+    tyreSmoke: '#d8d9dd',
+    lotLine: '#eceef2',
+  },
+  // Night haze, lit a little from below by the city.
+  fog: { color: '#221c33', near: 120, far: 460 },
+  sun: new THREE.Vector3(0.35, 0.8, 0.48).normalize(),
+}
+
+const VENUES = { park: PARK, forest: FOREST, city: CITY }
 export type VenueId = keyof typeof VENUES
 
 const venueNow = () => VENUES[circuitById(selectedCircuit()).venue]

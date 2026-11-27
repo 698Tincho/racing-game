@@ -1,16 +1,17 @@
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { Clone } from '@react-three/drei'
 import * as THREE from 'three'
-import { useNatureModel, useRacingModel } from '../kit'
+import { useCityModel, useNatureModel, useRacingModel } from '../kit'
 import { FLOOR_Y } from './boardSize'
 import { pool, scenery, type Placement } from './scenery'
 import { FOREST_MODELS } from './forestScenery'
+import { CITY_MODELS } from './cityScenery'
 import { PALETTE } from './palette'
 
 // Models that appear many times are drawn as instances (one draw call per
-// part instead of one per copy). So is all of the forest.
-const INSTANCED = new Set(['treeLarge', 'treeSmall', 'lightPostModern', 'barrierRed', 'barrierWhite', 'barrierWall', 'fenceStraight'])
-const instanced = (p: Placement) => p.kit === 'nature' || INSTANCED.has(p.model)
+// part instead of one per copy). So is all of the forest and the city.
+const INSTANCED = new Set(['treeLarge', 'treeSmall', 'lightPostModern', 'barrierRed', 'barrierWhite', 'barrierWall', 'fenceStraight', 'grandStandCovered'])
+const instanced = (p: Placement) => p.kit !== undefined || INSTANCED.has(p.model)
 
 /**
  * Trackside dressing, visual only: tents, the radar dish, light posts,
@@ -35,6 +36,8 @@ export function Props() {
       {groups.map(([model, list]) =>
         list[0].kit === 'nature' ? (
           <InstancedNature key={model} model={model} placements={list} />
+        ) : list[0].kit === 'city' ? (
+          <InstancedCity key={model} model={model} placements={list} />
         ) : (
           <InstancedModel key={model} model={model} placements={list} />
         ),
@@ -57,6 +60,11 @@ export function InstancedModel({ model, placements }: { model: string; placement
 /** Every copy of one Nature Kit model, the same way. */
 function InstancedNature({ model, placements }: { model: string; placements: Placement[] }) {
   return <InstancedScene scene={useNatureModel(model)} placements={placements} />
+}
+
+/** Every copy of one City Kit model, the same way. */
+function InstancedCity({ model, placements }: { model: string; placements: Placement[] }) {
+  return <InstancedScene scene={useCityModel(model)} placements={placements} />
 }
 
 function InstancedScene({ scene, placements }: { scene: THREE.Object3D; placements: Placement[] }) {
@@ -121,3 +129,4 @@ function Pool() {
 for (const name of new Set(scenery.filter((p) => !p.kit).map((p) => p.model))) useRacingModel.preload(name)
 // (Only on a forest circuit: elsewhere they'd download for nothing.)
 if (scenery.some((p) => p.kit === 'nature')) for (const name of FOREST_MODELS) useNatureModel.preload(name)
+if (scenery.some((p) => p.kit === 'city')) for (const name of CITY_MODELS) useCityModel.preload(name)

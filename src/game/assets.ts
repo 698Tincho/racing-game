@@ -15,3 +15,8 @@ export const carKitModelUrl = (name: string) => `${CAR_KIT_URL}/${name}.glb`
 export const NATURE_KIT_URL = '/models/nature-kit'
 
 export const natureModelUrl = (name: string) => `${NATURE_KIT_URL}/${name}.glb`
+
+// City Kit (Commercial): the street circuit's shops, offices and towers.
+export const CITY_KIT_URL = '/models/city-kit'
+
+export const cityModelUrl = (name: string) => `${CITY_KIT_URL}/${name}.glb`

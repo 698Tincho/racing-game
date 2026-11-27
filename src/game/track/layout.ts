@@ -176,7 +176,8 @@ function smoothLoop(values: number[], radius: number) {
   })
 }
 
-export function buildTrack(sequence: PieceId[]): BuiltTrack {
+/** `walls`: a street circuit, with walls right along the edge instead of sand run-offs in the corners. */
+export function buildTrack(sequence: PieceId[], { walls = false } = {}): BuiltTrack {
   const pieces: PlacedPiece[] = []
   const raw: PathSample[] = []
   const tiles = new Set<string>()
@@ -242,7 +243,7 @@ export function buildTrack(sequence: PieceId[]): BuiltTrack {
   }
   for (const piece of pieces) {
     const corner = PIECES[piece.id].corner
-    if (!corner) continue
+    if (!corner || walls) continue
     piece.sand = path
       .filter((p) => p.piece === piece.index)
       .every((p) => {
@@ -389,7 +390,10 @@ const built = new Map<string, BuiltTrack>()
 /** A circuit's track, built the first time it's asked for. */
 export function trackOf(circuitId: string) {
   let t = built.get(circuitId)
-  if (!t) built.set(circuitId, (t = buildTrack(circuitById(circuitId).layout)))
+  if (!t) {
+    const { layout, walls } = circuitById(circuitId)
+    built.set(circuitId, (t = buildTrack(layout, { walls })))
+  }
   return t
 }
 

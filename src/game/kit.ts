@@ -1,6 +1,6 @@
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
-import { carKitModelUrl, natureModelUrl, racingModelUrl } from './assets'
+import { carKitModelUrl, cityModelUrl, natureModelUrl, racingModelUrl } from './assets'
 import { PALETTE } from './scene/palette'
 
 /**
@@ -172,3 +172,85 @@ export function useNatureModel(name: string) {
 }
 
 useNatureModel.preload = (name: string) => useGLTF.preload(natureModelUrl(name))
+
+/**
+ * The City Kit's buildings all share one colour texture. They get one shared
+ * material for it, and at night (PALETTE.windows) a glow on just the texture's
+ * blue window colours, so the windows light up and the walls don't.
+ */
+let cityMaterial: THREE.MeshStandardMaterial | null = null
+function cityMaterialFor(source: THREE.MeshStandardMaterial) {
+  if (!cityMaterial) {
+    cityMaterial = new THREE.MeshStandardMaterial({ map: source.map, roughness: 0.75, side: THREE.DoubleSide })
+    cityMaterial.name = 'city'
+  }
+  const glow = PALETTE.windows
+  if (glow && source.map && !cityMaterial.emissiveMap) {
+    cityMaterial.emissiveMap = windowMask(source.map)
+    cityMaterial.emissive.set(glow)
+    cityMaterial.emissiveIntensity = 1.3
+  } else if (!glow) {
+    cityMaterial.emissive.set('black')
+  }
+  cityMaterial.needsUpdate = true
+  return cityMaterial
+}
+
+/**
+ * How much each part of the texture glows: its swatches sit on a grid of
+ * 32 px squares (in a 512 px image), and the windows are the two blue columns
+ * in the second band. The dark glass of the far skyline glows a little.
+ */
+function windowGlow(u: number, v: number) {
+  if (u >= 0.5 && u < 0.75 && v >= 0.25 && v < 0.5) return 255
+  if (u >= 0.5 && u < 0.875 && v >= 0.75) return 70
+  return 0
+}
+
+/** The window glow as a texture laid out like the colour one. */
+function windowMask(map: THREE.Texture) {
+  const image = map.image as CanvasImageSource & { width: number; height: number }
+  const canvas = document.createElement('canvas')
+  canvas.width = image.width
+  canvas.height = image.height
+  const g = canvas.getContext('2d')!
+  g.drawImage(image, 0, 0)
+  const pixels = g.getImageData(0, 0, canvas.width, canvas.height)
+  const d = pixels.data
+  // The image may have come in upside down: the window blue should be 30% of the way down.
+  const probe = (Math.floor(canvas.height * 0.3) * canvas.width + Math.floor(canvas.width * 0.53)) * 4
+  const upright = d[probe + 2] - d[probe] > 40
+  for (let i = 0; i < d.length; i += 4) {
+    const p = i / 4
+    const v = Math.floor(p / canvas.width) / canvas.height
+    d[i] = d[i + 1] = d[i + 2] = windowGlow((p % canvas.width) / canvas.width, upright ? v : 1 - v)
+  }
+  g.putImageData(pixels, 0, 0)
+  const mask = new THREE.CanvasTexture(canvas)
+  // Laid out like the texture it came from.
+  mask.flipY = map.flipY
+  mask.channel = map.channel
+  return mask
+}
+
+/** A City Kit model: one shared material, centred on x/z and sitting on y = 0. */
+export function useCityModel(name: string) {
+  const { scene } = useGLTF(cityModelUrl(name))
+  if (!scene.userData.tidied) {
+    scene.userData.tidied = true
+    scene.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.material = cityMaterialFor(mesh.material as THREE.MeshStandardMaterial)
+      mesh.castShadow = true
+      mesh.receiveShadow = true
+    })
+    scene.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(scene)
+    const shift = new THREE.Vector3((box.min.x + box.max.x) / 2, box.min.y, (box.min.z + box.max.z) / 2)
+    for (const child of scene.children) child.position.sub(shift)
+  }
+  return scene
+}
+
+useCityModel.preload = (name: string) => useGLTF.preload(cityModelUrl(name))

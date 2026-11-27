@@ -70,18 +70,43 @@ const TRACK_2: PieceId[] = [
   ...HOME_END,
 ]
 
+/**
+ * Circuit 03, the street circuit: tight and technical round the city blocks
+ * west of the paddock, nearly all slow right-angle corners, with walls right
+ * along the edge. 637 m, 16 corners. Being built: only in development.
+ */
+const TRACK_3: PieceId[] = [
+  ...HOME_START, // the same start: main straight, turn 1, the top straight
+  ...straights(2), 'RS', ...straights(3), 'LS', // up a side street
+  ...straights(6), // the north avenue
+  'LS', ...straights(2), 'RS', 'LS', // down, through a chicane
+  ...straights(4), 'LS', ...straights(3), 'RS', ...straights(2), 'RS', // round the block
+  ...straights(5), 'LS', ...straights(3), 'LS', // out west and back
+  ...straights(4), 'RS', ...straights(3), 'LS', // one more block
+  ...straights(6), // along the bottom
+  'LS', 'S', 'S', 'RS', // up beside the parking lot, as on Circuit 01
+  ...HOME_END,
+]
+
 export type Circuit = {
   /** Keys its records, ghost and leaderboard. Change it when the layout changes, so old times don't carry over. */
   id: string
   name: string
   layout: PieceId[]
   /** What's around it: the park (dusk, Racing Kit trees) or the mountain forest (morning, Nature Kit). See palette.ts. */
-  venue: 'park' | 'forest'
+  venue: 'park' | 'forest' | 'city'
+  /** A street circuit: concrete walls along the edge, no sand in the corners. */
+  walls?: boolean
 }
 
 export const CIRCUITS: Circuit[] = [
   { id: 'lider-7', name: 'Circuit 01', layout: TRACK_1, venue: 'park' },
-  ...(import.meta.env.DEV ? [{ id: 'forest-1', name: 'Circuit 02', layout: TRACK_2, venue: 'forest' as const }] : []),
+  ...(import.meta.env.DEV
+    ? [
+        { id: 'forest-1', name: 'Circuit 02', layout: TRACK_2, venue: 'forest' as const },
+        { id: 'city-1', name: 'Circuit 03', layout: TRACK_3, venue: 'city' as const, walls: true },
+      ]
+    : []),
 ]
 
 export const DEFAULT_CIRCUIT = CIRCUITS[0].id
