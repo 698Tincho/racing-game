@@ -23,7 +23,7 @@ import { PitBuilding } from './game/scene/PitBuilding'
 import { PitLaneSurface } from './game/scene/PitLaneSurface'
 import { TrackLights } from './game/scene/TrackLights'
 import { StartLights } from './game/track/StartLights'
-import { FOG, PALETTE } from './game/scene/palette'
+import { FOG, PALETTE, SUN_DIRECTION } from './game/scene/palette'
 import { expectSteps, type LoadStep } from './game/loading'
 import { Ready } from './game/Ready'
 import { useGame } from './game/race/store'
@@ -70,11 +70,11 @@ export default function App() {
           <Ground />
           <Scene />
         </Fragment>
-        {/* Soft reflections on the car: a violet dusk sky, dark ground and a low orange sun, rendered once. */}
-        <Environment resolution={128} frames={1}>
-          <color attach="background" args={['#4d467f']} />
-          <Lightformer form="rect" intensity={0.45} color="#4d4356" position={[0, -10, 0]} rotation-x={-Math.PI / 2} scale={[100, 100, 1]} />
-          <Lightformer form="circle" intensity={5} color={PALETTE.sun} position={[-16, 12, 17]} scale={7} />
+        {/* Soft reflections on the car: the venue's sky, dark ground and its sun, rendered once per circuit. */}
+        <Environment key={`reflections-${circuitId}`} resolution={128} frames={1}>
+          <color attach="background" args={[PALETTE.reflections]} />
+          <Lightformer form="rect" intensity={0.45} color={PALETTE.hemisphereGround} position={[0, -10, 0]} rotation-x={-Math.PI / 2} scale={[100, 100, 1]} />
+          <Lightformer form="circle" intensity={5} color={PALETTE.sun} position={SUN_DIRECTION.clone().multiplyScalar(26).toArray()} scale={7} />
         </Environment>
         <CarShowcase />
         <Frame />

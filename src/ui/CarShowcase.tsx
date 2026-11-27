@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { KartModel, type KartMotion } from '../game/KartModel'
 import { CARS, carUrl } from '../game/cars'
 import { useGame } from '../game/race/store'
-import { PALETTE } from '../game/scene/palette'
+import { PARK_PALETTE as PALETTE } from '../game/scene/palette'
 import { Ready } from '../game/Ready'
 import { useLoading } from '../game/loading'
 

@@ -1,6 +1,8 @@
-import { BARRIER_THICKNESS, TILE, WALL_OUTER, beyondWall, nearestOnTrack, offsetLeft, onTrackChange, track } from '../track/layout'
+import { BARRIER_THICKNESS, TILE, WALL_OUTER, beyondWall, nearestOnTrack, offsetLeft, onTrackChange, selectedCircuit, track } from '../track/layout'
 import { FLOOR_Y, board } from './boardSize'
 import { nearPitLane, pitLane } from '../track/pitLane'
+import { circuitById } from '../track/circuits'
+import { buildForest, type Pool } from './forestScenery'
 
 /**
  * What stands around the circuit, all from Kenney's Racing Kit, laid out
@@ -14,12 +16,16 @@ import { nearPitLane, pitLane } from '../track/pitLane'
  *   - flags at the start/finish line
  *   - trees outside the fence (the infield is left as open grass)
  * Anything that would land on (or too close to) the track is left out.
+ * In the mountain forest the trees are the Nature Kit's instead, with rocks,
+ * ridges and campsites (forestScenery.ts).
  *
  * Each model's front is its local +Z, so `yaw` is the direction it faces.
  */
 
 export type Placement = {
   model: string
+  /** Which Kenney kit it's from, when it's not the Racing Kit. */
+  kit?: 'nature'
   x: number
   z: number
   /** Direction the model's front faces (yaw, three.js convention). */
@@ -301,11 +307,19 @@ function buildScenery(): Placement[] {
   fence(minX, minZ, minX, maxZ)
   fence(maxX, minZ, maxX, maxZ)
 
-  // Trees: scattered over the outside of the circuit and in a thicker belt
-  // further out, never in the infield or on top of anything.
   const rand = mulberry32(11)
   const taken = (x: number, z: number, r: number) =>
     solid.some((p) => Math.hypot(p.x - x, p.z - z) < r + Math.max(p.width, p.depth) / 2)
+
+  if (circuitById(selectedCircuit()).venue === 'forest') {
+    const forest = buildForest({ rand, taken, inParkingLot, inPaddock })
+    pool = forest.pool
+    return [...solid, ...forest.placements]
+  }
+  pool = null
+
+  // Trees: scattered over the outside of the circuit and in a thicker belt
+  // further out, never in the infield or on top of anything.
   const trees: Placement[] = []
   for (let attempt = 0; attempt < 900 && trees.length < 170; attempt++) {
     const belt = rand() < 0.65
@@ -321,6 +335,14 @@ function buildScenery(): Placement[] {
 
   return [...solid, ...trees]
 }
+
+/** The pits and everything east of the main straight, give or take `margin` metres. */
+function inPaddock(x: number, z: number, margin: number) {
+  return x > track.finish.x + 2 - margin && x < PERIMETER.maxX + margin && z > PERIMETER.minZ - margin && z < PERIMETER.maxZ + margin
+}
+
+/** The forest's waterfall pool, when there is one. */
+export let pool: Pool | null = null
 
 /** Where each post's lamp is, and where its light lands. */
 const lightsOf = (placements: Placement[]): StreetLight[] =>

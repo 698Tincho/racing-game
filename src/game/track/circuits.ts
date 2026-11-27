@@ -46,17 +46,26 @@ export const TRACK_1: PieceId[] = [
   ...HOME_END, // along the lot and onto the main straight
 ]
 
+/** `n` straights in a row. */
+const straights = (n: number): PieceId[] => Array(n).fill('S')
+
 /**
- * A plain loop for trying out the circuit switch while the real second
- * circuit is designed: long straights out west and back. Only in development.
+ * Circuit 02, the mountain forest: long and flowing, almost all large
+ * corners, out into the woods west of the paddock and back. 948 m, 16
+ * corners. Being built: only in development until its venue is done.
  */
-const TEST_LOOP: PieceId[] = [
-  ...HOME_START,
-  'S', 'S', 'S', 'S', 'S', 'S', 'S', // on west along the top
-  'LL', // down the far side
-  'S', 'S', 'S', 'S', 'RS', 'LS', 'S', 'S', 'S', 'S', 'S', 'S', 'S', // a kink halfway down
-  'LL', // back east along the bottom, below the parts tent
-  'S', 'S', 'S', 'S', 'S', 'S', 'S',
+const TRACK_2: PieceId[] = [
+  ...HOME_START, // the same start as Circuit 01: main straight, turn 1, the top straight
+  ...straights(1), 'RL', 'LL', // a quick kink out of turn 2
+  ...straights(2), 'RL', ...straights(1), 'LL', // esses, climbing into the trees
+  ...straights(7), // back straight along the top of the hill
+  'LL', ...straights(2), 'LL', // the carousel: a long 180° left out west
+  ...straights(4), 'RL', ...straights(2), 'LL', // down off the hill
+  ...straights(12), // east across the middle, into the infield
+  'RL', ...straights(2), 'RL', // round, under the end of the main straight
+  ...straights(15), // the long run west
+  'LL', ...straights(4), 'LL', // a wide 180° left at the far end
+  ...straights(11), // back east along the bottom
   'LS', 'S', 'S', 'RS', // up beside the parking lot, as on Circuit 01
   ...HOME_END,
 ]
@@ -66,11 +75,13 @@ export type Circuit = {
   id: string
   name: string
   layout: PieceId[]
+  /** What's around it: the park (dusk, Racing Kit trees) or the mountain forest (morning, Nature Kit). See palette.ts. */
+  venue: 'park' | 'forest'
 }
 
 export const CIRCUITS: Circuit[] = [
-  { id: 'lider-7', name: 'Circuit 01', layout: TRACK_1 },
-  ...(import.meta.env.DEV ? [{ id: 'test-loop', name: 'Test loop', layout: TEST_LOOP }] : []),
+  { id: 'lider-7', name: 'Circuit 01', layout: TRACK_1, venue: 'park' },
+  ...(import.meta.env.DEV ? [{ id: 'forest-1', name: 'Circuit 02', layout: TRACK_2, venue: 'forest' as const }] : []),
 ]
 
 export const DEFAULT_CIRCUIT = CIRCUITS[0].id

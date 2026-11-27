@@ -1,6 +1,7 @@
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
-import { carKitModelUrl, racingModelUrl } from './assets'
+import { carKitModelUrl, natureModelUrl, racingModelUrl } from './assets'
+import { PALETTE } from './scene/palette'
 
 /**
  * The Racing Kit's materials are flat (unlit) and their colours are stored
@@ -130,3 +131,44 @@ function tidyCarKit(scene: THREE.Group) {
 }
 
 useCarKitModel.preload = (name: string) => useGLTF.preload(carKitModelUrl(name))
+
+/**
+ * The Nature Kit comes in bright teal and orange. Its materials have plain
+ * names (grass, leafsDark, stone...), so each is swapped for a lit one in the
+ * venue's colour for that name (PALETTE.nature), shared by every model.
+ */
+const natureCache = new Map<string, THREE.Material>()
+function natureMaterial(source: THREE.Material) {
+  const color = PALETTE.nature[source.name]
+  if (!color) return lit(source)
+  const key = `${source.name}|${color}`
+  let m = natureCache.get(key)
+  if (!m) {
+    m = new THREE.MeshStandardMaterial({ color, roughness: source.name === 'water' ? 0.2 : 0.9 })
+    m.name = source.name
+    natureCache.set(key, m)
+  }
+  return m
+}
+
+/** A Nature Kit model in the venue's colours, centred on x/z and sitting on y = 0. */
+export function useNatureModel(name: string) {
+  const { scene } = useGLTF(natureModelUrl(name))
+  if (!scene.userData.tidied) {
+    scene.userData.tidied = true
+    scene.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map(natureMaterial) : natureMaterial(mesh.material)
+      mesh.castShadow = true
+      mesh.receiveShadow = true
+    })
+    scene.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(scene)
+    const shift = new THREE.Vector3((box.min.x + box.max.x) / 2, box.min.y, (box.min.z + box.max.z) / 2)
+    for (const child of scene.children) child.position.sub(shift)
+  }
+  return scene
+}
+
+useNatureModel.preload = (name: string) => useGLTF.preload(natureModelUrl(name))

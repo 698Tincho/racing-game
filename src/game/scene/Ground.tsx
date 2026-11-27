@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { useRacingPiece } from '../kit'
 import { TILE } from '../track/layout'
 import { FLOOR_Y } from './boardSize'
+import { PALETTE } from './palette'
 
 /** Grass tiles this many tiles out from the middle in every direction. */
 const REACH = 40
@@ -25,7 +26,7 @@ export function Ground() {
     scene.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) found = o as THREE.Mesh
     })
-    return { geometry: found!.geometry, material: found!.material as THREE.Material, matrix: found!.matrixWorld.clone() }
+    return { geometry: found!.geometry, material: groundMaterial(found!.material as THREE.MeshStandardMaterial), matrix: found!.matrixWorld.clone() }
   }, [scene])
 
   const cells = useMemo(() => {
@@ -50,6 +51,19 @@ export function Ground() {
   }, [cells, matrix])
 
   return <instancedMesh ref={mesh} args={[geometry, material, cells.length]} receiveShadow />
+}
+
+/** The kit's grass, or a copy in the venue's own green. */
+const tinted = new Map<string, THREE.Material>()
+function groundMaterial(grass: THREE.MeshStandardMaterial) {
+  const color = PALETTE.ground
+  if (!color) return grass
+  if (!tinted.has(color)) {
+    const copy = grass.clone()
+    copy.color.set(color)
+    tinted.set(color, copy)
+  }
+  return tinted.get(color)!
 }
 
 useRacingPiece.preload('grass')

@@ -10,3 +10,8 @@ export const racingModelUrl = (name: string) => `${RACING_KIT_URL}/${name}.glb`
 export const CAR_KIT_URL = '/models/car-kit'
 
 export const carKitModelUrl = (name: string) => `${CAR_KIT_URL}/${name}.glb`
+
+// Nature Kit: the mountain forest's pines, rocks, cliffs, tents and campfires.
+export const NATURE_KIT_URL = '/models/nature-kit'
+
+export const natureModelUrl = (name: string) => `${NATURE_KIT_URL}/${name}.glb`

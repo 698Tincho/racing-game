@@ -41,6 +41,12 @@ function buildPools() {
  * two draw calls in total.
  */
 export function TrackLights() {
+  // In daylight the posts just stand there.
+  if (!PALETTE.lampsOn) return null
+  return <LampGlow />
+}
+
+function LampGlow() {
   const { poolGeometry, poolMaterial, haloGeometry, haloMaterial } = useMemo(() => {
     const map = glowTexture()
     const positions = new Float32Array(streetLights.flatMap((l) => [l.lamp.x, l.lamp.y, l.lamp.z]))

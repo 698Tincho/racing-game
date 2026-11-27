@@ -397,7 +397,10 @@ export function trackOf(circuitId: string) {
  * The selected circuit's track. Read it when you need it (not once, at the top
  * of a module): it's replaced when another circuit is picked.
  */
-export let track = trackOf(savedCircuit())
+let selected = savedCircuit()
+export let track = trackOf(selected)
+/** The id of the circuit `track` belongs to. */
+export const selectedCircuit = () => selected
 
 const listeners: (() => void)[] = []
 /**
@@ -426,6 +429,7 @@ export function perTrack<T>(make: () => T): () => T {
 export function selectTrack(circuitId: string) {
   const next = trackOf(circuitId)
   if (next === track) return
+  selected = circuitId
   track = next
   for (const rebuild of listeners) rebuild()
   if (import.meta.env.DEV) (window as unknown as { track: BuiltTrack }).track = track

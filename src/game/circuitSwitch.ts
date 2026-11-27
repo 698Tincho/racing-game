@@ -100,6 +100,7 @@ const quad = new THREE.Mesh(
   }),
 )
 quad.frustumCulled = false
+const haze = new THREE.Color()
 const coverScene = new THREE.Scene().add(quad)
 
 /** Moves the cover towards where it's going and draws it over the frame just drawn. Call after the world, before the menu's showcase. */
@@ -114,7 +115,12 @@ export function drawCover(gl: THREE.WebGLRenderer, camera: THREE.Camera, delta: 
       cover.arrived = null
     }
   }
-  if (cover.opacity <= 0) return
+  // The haze of the circuit on screen: while covered, it turns into the new circuit's.
+  quad.material.uniforms.color.value.lerp(haze.set(FOG.color), cover.opacity >= 1 ? 1 - Math.exp(-6 * delta) : 0)
+  if (cover.opacity <= 0) {
+    quad.material.uniforms.color.value.set(FOG.color)
+    return
+  }
   // Eased, so it starts and ends gently.
   const t = cover.opacity
   quad.material.uniforms.opacity.value = t * t * (3 - 2 * t)
