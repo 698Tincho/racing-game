@@ -1,10 +1,13 @@
-import { KERB_OUTER, ROAD_HALF_WIDTH, TILE, WALL_OUTER, nearestOnTrack, offsetLeft, track, type Pose } from './layout'
+import { KERB_OUTER, ROAD_HALF_WIDTH, TILE, WALL_OUTER, nearestOnTrack, offsetLeft, onTrackChange, track, type Pose } from './layout'
 import { PIECES } from './pieces'
 
 // ---------------------------------------------------------------------------
 // The pit lane: it branches off the outside of the last corner, runs along the
 // front of the garages under a speed limit, and rejoins the track after
 // turn 1, past the corner's sand. It's as wide as the track.
+// Every circuit shares those two corners and the main straight (circuits.ts),
+// so the lane's course is the same on all of them; what it crosses or skips
+// (kerbs, checkpoints, walls) is worked out per circuit.
 // ---------------------------------------------------------------------------
 
 export const PIT_LANE_HALF_WIDTH = 0.35 * TILE
@@ -92,6 +95,9 @@ export const nearPitLane = (x: number, z: number, margin = 0.6) => pitNearest(x,
 
 function buildPitLane() {
   const points = catmullRom(CONTROL, 1)
+  // Away from where it peels off and rejoins, the lane must keep clear of the track.
+  if (CONTROL.slice(6, -6).some(([x, z]) => nearestOnTrack(x, z).dist < ROAD_HALF_WIDTH + 3))
+    console.warn('[pit lane] this circuit runs into the pit lane: keep the home section free (circuits.ts)')
   const path: PitSample[] = points.map((p, i) => {
     const a = points[Math.max(i - 1, 0)]
     const b = points[Math.min(i + 1, points.length - 1)]
@@ -181,4 +187,5 @@ function buildPitLane() {
   }
 }
 
-export const pitLane = buildPitLane()
+export let pitLane = buildPitLane()
+onTrackChange(() => (pitLane = buildPitLane()))

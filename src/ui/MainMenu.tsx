@@ -1,8 +1,10 @@
 import { useEffect, useState, type AnimationEvent, type MouseEvent } from 'react'
 import { CARS, carRenderUrl, type CarId } from '../game/cars'
-import { ATTEMPTS, TRACK_ID, formatTime, useGame } from '../game/race/store'
+import { ATTEMPTS, formatTime, useGame } from '../game/race/store'
 import { useBoard } from '../game/race/leaderboard'
-import { track } from '../game/track/layout'
+import { perTrack, track } from '../game/track/layout'
+import { CIRCUITS, circuitById } from '../game/track/circuits'
+import { stepCircuit } from '../game/circuitSwitch'
 import { MENU_LEAN, showcaseSlot } from './CarShowcase'
 import { Key, WasdKeys } from './Key'
 
@@ -185,8 +187,23 @@ function Chevron({ dir }: { dir: 'left' | 'right' }) {
   )
 }
 
+/** ‹ › beside the circuit's name, when there's more than one to pick from. */
+function CircuitPicker() {
+  if (CIRCUITS.length < 2) return null
+  return (
+    <div className="menu-track-pager">
+      <button className="menu-pager-button" aria-label="Previous circuit" onMouseDown={keepFocus} onClick={() => stepCircuit(-1)}>
+        <Chevron dir="left" />
+      </button>
+      <button className="menu-pager-button" aria-label="Next circuit" onMouseDown={keepFocus} onClick={() => stepCircuit(1)}>
+        <Chevron dir="right" />
+      </button>
+    </div>
+  )
+}
+
 // The circuit's outline for the map, from the centreline, fitted into a 240 × 180 box.
-const MAP = (() => {
+const mapOf = perTrack(() => {
   const W = 240
   const H = 180
   const PAD = 10
@@ -204,30 +221,37 @@ const MAP = (() => {
   const [fx, fz] = at(track.finish.x, track.finish.z)
   const across = [Math.cos(track.finish.yaw) * 9, -Math.sin(track.finish.yaw) * 9]
   return { line, finish: [fx - across[0], fz - across[1], fx + across[0], fz + across[1]] }
-})()
-
-const SECTORS = track.sectorEnds.length + 1
+})
 
 function TrackCard() {
+  // (The track itself changes with it: read below, after this.)
+  const circuitId = useGame((s) => s.circuitId)
+  const circuit = circuitById(circuitId)
+  const map = mapOf()
   const personalBest = useGame((s) => s.personalBest)
   const viewTrack = useGame((s) => s.viewTrack)
   // The online board's fastest lap, if it can be reached (a cached read, on each visit to the menu).
   const board = useBoard((s) => s.board)
   const online = useBoard((s) => s.status === 'ready')
   useEffect(() => {
-    void useBoard.getState().load(TRACK_ID, false)
-  }, [])
-  const worldRecord = online && board?.track === TRACK_ID ? (board.top[0] ?? null) : undefined
+    void useBoard.getState().load(circuitId, false)
+  }, [circuitId])
+  const worldRecord = online && board?.track === circuitId ? (board.top[0] ?? null) : undefined
   return (
     <div className="menu-track">
       <Eyebrow>Track</Eyebrow>
-      <h2 className="menu-track-name">Circuit 01</h2>
+      <div className="menu-track-head">
+        <h2 className="menu-track-name" aria-live="polite">
+          {circuit.name}
+        </h2>
+        <CircuitPicker />
+      </div>
       <div className="menu-track-body">
         {/* The map is the way into the track preview (V does the same). */}
-        <button className="menu-map" aria-label="Preview Circuit 01" title="Preview the track (V)" onMouseDown={keepFocus} onClick={viewTrack}>
+        <button className="menu-map" aria-label={`Preview ${circuit.name}`} title="Preview the track (V)" onMouseDown={keepFocus} onClick={viewTrack}>
           <svg viewBox="0 0 240 180" aria-hidden>
-            <path d={MAP.line} />
-            <line x1={MAP.finish[0]} y1={MAP.finish[1]} x2={MAP.finish[2]} y2={MAP.finish[3]} />
+            <path d={map.line} />
+            <line x1={map.finish[0]} y1={map.finish[1]} x2={map.finish[2]} y2={map.finish[3]} />
           </svg>
         </button>
         <dl className="menu-stats">
@@ -240,7 +264,7 @@ function TrackCard() {
           <div>
             <dt>Sectors</dt>
             <dd>
-              <span className="menu-stats-num">{SECTORS}</span>
+              <span className="menu-stats-num">{track.sectorEnds.length + 1}</span>
             </dd>
           </div>
           {/* Purple: the fastest lap of all, as on a timing screen. Hidden when the board can't be reached. */}

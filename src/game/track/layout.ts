@@ -1,11 +1,11 @@
 import { GRID_BOXES, PIECES, START_LINE_Z, type PieceId, type Pose } from './pieces'
+import { circuitById, savedCircuit } from './circuits'
 
 export type { Pose } from './pieces'
 
 // ---------------------------------------------------------------------------
-// The circuit is built from Kenney Racing Kit road tiles, snapped together.
-// Its shape follows an outdoor kart track ("Karting Club Lider" on Sketchfab,
-// used only as a layout reference), fitted to the kit's grid.
+// A circuit is built from Kenney Racing Kit road tiles, snapped together. The
+// layouts are in circuits.ts; `track` is the one selected now.
 // ---------------------------------------------------------------------------
 
 /** One kit tile, in metres. The kit's road is 0.7 tiles wide: 5.6 m. */
@@ -34,39 +34,6 @@ const PARKING_TILES = { minCol: 2, maxCol: 8, minRow: 8, maxRow: 10 }
 
 /** A checkpoint every this many meters: you can't skip a section. */
 const CHECKPOINT_SPACING = 25
-
-/**
- * Track 1. Read it like turtle directions, starting on the main straight
- * heading north (-z), two tiles before the line:
- *   S straight · GRID starting grid (2 tiles) · START line and gantry (2 tiles)
- *   LS/RS small corner (1 tile) · LL/RL large corner (2×2 tiles)
- * Only 90° corners, so every piece sits on the kit's grid. Every corner has a
- * free tile on its outside and parallel sections have a free tile between
- * them, so kerbs and barriers never run into another part of the track.
- * Its outline fills a 14 × 16 tile rectangle, with the bottom-right block left
- * free for the parking lot.
- * The loop must end exactly where it starts (the builder warns if it doesn't).
- */
-export const TRACK_1: PieceId[] = [
-  'GRID', 'START', 'S', 'S', 'S', 'S', 'S', // main straight, pit garages on the right
-  'LL', // top-right corner
-  'S', 'S', 'S', 'S', 'S', // top straight
-  'LS', 'S', 'S', 'S', 'S', // down into the S
-  'RL', 'RL', // the hairpin: two large corners, one semicircle
-  'S', 'S', 'S', 'S', 'LS', 'S', // back up to the top edge and left
-  'LL', // top-left corner
-  'S', 'S', 'S', 'S', 'S', 'S', // left straight
-  'LS', 'S', 'S', 'S', 'S', 'S', 'S', 'S', // into the hook
-  'LS', 'S', 'S', 'S', 'S', // up the middle
-  'RL', 'RL', // over the top of the hook: another semicircle
-  'S', 'S', 'S', 'S', 'S', // down beside the main straight
-  'RL', 'S', 'S', 'S', 'S', 'S', 'S', 'S', 'S', 'S', // back straight, right to left
-  'LS', 'S', 'S', 'S', // down the left side
-  'LL', // bottom-left corner
-  'S', 'S', 'S', 'S', 'LS', 'S', 'S', 'RS', // bottom straight, then up around the parking lot
-  'S', 'S', 'S', 'S', 'S',
-  'LL', // onto the main straight
-]
 
 /** Where the first piece starts: the bottom of tile (8, 5), heading north (-z). */
 const ORIGIN: Pose = { x: 8 * TILE, z: 5.5 * TILE, yaw: Math.PI }
@@ -209,7 +176,7 @@ function smoothLoop(values: number[], radius: number) {
   })
 }
 
-export function buildTrack(sequence: PieceId[] = TRACK_1): BuiltTrack {
+export function buildTrack(sequence: PieceId[]): BuiltTrack {
   const pieces: PlacedPiece[] = []
   const raw: PathSample[] = []
   const tiles = new Set<string>()
@@ -418,7 +385,51 @@ export function surfaceFromNearest(n: ReturnType<typeof nearestOnTrack>, t: Buil
   return 'grass'
 }
 
-export const track = buildTrack()
+const built = new Map<string, BuiltTrack>()
+/** A circuit's track, built the first time it's asked for. */
+export function trackOf(circuitId: string) {
+  let t = built.get(circuitId)
+  if (!t) built.set(circuitId, (t = buildTrack(circuitById(circuitId).layout)))
+  return t
+}
+
+/**
+ * The selected circuit's track. Read it when you need it (not once, at the top
+ * of a module): it's replaced when another circuit is picked.
+ */
+export let track = trackOf(savedCircuit())
+
+const listeners: (() => void)[] = []
+/**
+ * Re-run `rebuild` whenever another circuit is picked: for anything worked out
+ * from the track ahead of time. They run in the order they were added, which
+ * is the order the modules loaded in, so what a rebuild uses is already new.
+ */
+export function onTrackChange(rebuild: () => void) {
+  listeners.push(rebuild)
+}
+
+/**
+ * Wraps `make` so it runs once per circuit: the first time for each track, and
+ * after that hands back what it made then. For meshes and other things built
+ * from the track that are slow to make, so switching back is instant.
+ */
+export function perTrack<T>(make: () => T): () => T {
+  const made = new WeakMap<BuiltTrack, T>()
+  return () => {
+    if (!made.has(track)) made.set(track, make())
+    return made.get(track)!
+  }
+}
+
+/** Make `circuitId` the track, and rebuild everything worked out from it. */
+export function selectTrack(circuitId: string) {
+  const next = trackOf(circuitId)
+  if (next === track) return
+  track = next
+  for (const rebuild of listeners) rebuild()
+  if (import.meta.env.DEV) (window as unknown as { track: BuiltTrack }).track = track
+}
 
 /** How far (x, z) is beyond the barrier beside it. Negative means inside the barriers. */
 export function beyondWall(x: number, z: number) {

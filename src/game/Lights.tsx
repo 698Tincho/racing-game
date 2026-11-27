@@ -10,7 +10,7 @@ import { PALETTE } from './scene/palette'
 const SUN_DISTANCE = 60
 const RACE_SHADOW_SIZE = 22 // sharp shadows around the kart while racing
 const HIGH_VIEW_SHADOW_SIZE = 36 // the high camera sees more of the track
-const OVERVIEW_SHADOW_SIZE = Math.max(board.width, board.depth) * 0.55 // covers the whole board on the menu
+const overviewShadowSize = () => Math.max(board.width, board.depth) * 0.55 // covers the whole board on the menu
 
 /**
  * While racing, the sun follows the kart so the shadow map only covers the
@@ -36,7 +36,7 @@ export function Lights() {
     light.target.position.copy(target)
     light.target.updateMatrixWorld()
 
-    const wanted = overview ? OVERVIEW_SHADOW_SIZE : high ? HIGH_VIEW_SHADOW_SIZE : RACE_SHADOW_SIZE
+    const wanted = overview ? overviewShadowSize() : high ? HIGH_VIEW_SHADOW_SIZE : RACE_SHADOW_SIZE
     if (size.current !== wanted) {
       size.current = wanted
       const cam = light.shadow.camera

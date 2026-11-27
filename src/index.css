@@ -1193,8 +1193,52 @@ kbd,
   color: #ffffff;
 }
 
+/* The circuit's name, with ‹ › at the end of its row when there's more than one circuit. */
+.menu-track-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: calc(16 * var(--u));
+}
+
+.menu-track-pager {
+  display: flex;
+  gap: calc(6 * var(--u));
+}
+
+/* Small versions of the car arrows, leaning the same way. */
+.menu-pager-button {
+  display: grid;
+  place-items: center;
+  width: calc(30 * var(--u));
+  height: calc(26 * var(--u));
+  padding: 0;
+  border: 1.5px solid #ffffff;
+  background: transparent;
+  color: #ffffff;
+  transform: skewX(var(--lean));
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.menu-pager-button:hover {
+  background: #ffffff;
+  color: var(--carbon);
+}
+
+.menu-pager-button svg {
+  width: calc(11 * var(--u));
+  height: calc(11 * var(--u));
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  transform: skewX(calc(-1 * var(--lean)));
+}
+
 .menu-track-name {
   margin: calc(16 * var(--u)) 0 0;
+  white-space: nowrap;
   font-family: var(--font-heading);
   font-size: calc(34 * var(--u));
   font-weight: 400;

@@ -1,4 +1,4 @@
-import { BARRIER_THICKNESS, TILE, WALL_OUTER, beyondWall, nearestOnTrack, offsetLeft, track } from '../track/layout'
+import { BARRIER_THICKNESS, TILE, WALL_OUTER, beyondWall, nearestOnTrack, offsetLeft, onTrackChange, track } from '../track/layout'
 import { FLOOR_Y, board } from './boardSize'
 import { nearPitLane, pitLane } from '../track/pitLane'
 
@@ -119,12 +119,13 @@ export const PARTS_TENT = { x: -16, z: 60, yaw: 0 }
 
 /** The fence around the track, pits and parking: one big rectangle. */
 const FENCE_MARGIN = 7
-export const PERIMETER = {
+const perimeter = () => ({
   minX: track.bounds.minX - FENCE_MARGIN,
   maxX: Math.max(EMERGENCY_BAY.x + EMERGENCY_BAY.width / 2, PIT_BUILDING.x + PIT_DEPTH / 2) + 2.6,
   minZ: Math.min(track.bounds.minZ - FENCE_MARGIN, pitLane.bounds.minZ - 2.5),
   maxZ: track.bounds.maxZ + FENCE_MARGIN,
-}
+})
+export let PERIMETER = perimeter()
 const insidePerimeter = (x: number, z: number, margin = 0) =>
   x > PERIMETER.minX - margin && x < PERIMETER.maxX + margin && z > PERIMETER.minZ - margin && z < PERIMETER.maxZ + margin
 
@@ -321,16 +322,24 @@ function buildScenery(): Placement[] {
   return [...solid, ...trees]
 }
 
-export const scenery = buildScenery()
-
 /** Where each post's lamp is, and where its light lands. */
-export const streetLights: StreetLight[] = scenery
-  .filter((p) => p.model === 'lightPostModern')
-  .map((p) => {
-    const fx = Math.sin(p.yaw)
-    const fz = Math.cos(p.yaw)
-    return {
-      lamp: { x: p.x + fx * POST_LAMP, y: FLOOR_Y + POST_LAMP_HEIGHT, z: p.z + fz * POST_LAMP },
-      pool: { x: p.x + fx * POST_POOL, z: p.z + fz * POST_POOL },
-    }
-  })
+const lightsOf = (placements: Placement[]): StreetLight[] =>
+  placements
+    .filter((p) => p.model === 'lightPostModern')
+    .map((p) => {
+      const fx = Math.sin(p.yaw)
+      const fz = Math.cos(p.yaw)
+      return {
+        lamp: { x: p.x + fx * POST_LAMP, y: FLOOR_Y + POST_LAMP_HEIGHT, z: p.z + fz * POST_LAMP },
+        pool: { x: p.x + fx * POST_POOL, z: p.z + fz * POST_POOL },
+      }
+    })
+
+/** The selected circuit's scenery and its street lights. */
+export let scenery = buildScenery()
+export let streetLights = lightsOf(scenery)
+onTrackChange(() => {
+  PERIMETER = perimeter()
+  scenery = buildScenery()
+  streetLights = lightsOf(scenery)
+})

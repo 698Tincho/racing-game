@@ -2,7 +2,7 @@ import { memo, useLayoutEffect, useMemo, useRef } from 'react'
 import { CuboidCollider, RigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
 import { trackAsphalt, useRacingModel, useRacingPiece, useRacingPieces } from '../kit'
-import { BARRIER_HEIGHT, BARRIER_LENGTH, BARRIER_THICKNESS, RUNOFF_Y, TILE, inPitWall, track } from './layout'
+import { BARRIER_HEIGHT, BARRIER_LENGTH, BARRIER_THICKNESS, RUNOFF_Y, TILE, inPitWall, perTrack, track } from './layout'
 import { mergeParts, partsOf, type StaticPart } from '../scene/mergeStatic'
 import { PIECES } from './pieces'
 import { nearPitLane, pitLane } from './pitLane'
@@ -26,10 +26,11 @@ export const Track = memo(function Track() {
 
 /** Physics: the ground, plus invisible walls along the barriers and the pit lane. */
 function TrackColliders() {
+  const walls = useMemo(collisionWalls, [])
   return (
     <RigidBody type="fixed" colliders={false}>
       <CuboidCollider args={[400, 0.5, 400]} position={[0, -0.5, 0]} />
-      {WALLS.map((w, i) => (
+      {walls.map((w, i) => (
         <CuboidCollider
           key={i}
           args={[BARRIER_THICKNESS / 2, BARRIER_HEIGHT / 2, w.length / 2]}
@@ -42,7 +43,7 @@ function TrackColliders() {
 }
 
 // (The pit lane runs through where the track's barrier would be.)
-const WALLS = [...track.barriers.flatMap((b) => b.segments.filter((w) => !nearPitLane(w.x, w.z))), ...pitLane.walls.segments]
+const collisionWalls = () => [...track.barriers.flatMap((b) => b.segments.filter((w) => !nearPitLane(w.x, w.z))), ...pitLane.walls.segments]
 
 // The kit's road surface is already at y = 0, where the car's wheels are. Its
 // grass strips are 0.08 m below that and its kerbs 0.08 m above.
@@ -56,27 +57,23 @@ const ROAD_TOP = 0.16
 const PAINT_REACH = 0.325
 
 /** Every kit model the road uses: tiles, kerbs and sand. */
-const SURFACE_MODELS = [
+const surfaceModels = perTrack(() => [
   ...new Set(
     track.pieces.flatMap((p) => {
       const def = PIECES[p.id]
       return [def.model, ...def.kerbs, ...(p.sand && def.sand ? [def.sand] : [])]
     }),
   ),
-]
+])
 
 /**
  * The road, kerbs and sand: every tile of the lap baked into one mesh per
- * material, so the whole circuit draws in a few calls. Built once.
+ * material, so the whole circuit draws in a few calls. Built once per circuit.
  */
 function TrackSurface() {
-  const scenes = useRacingPieces(SURFACE_MODELS)
-  const meshes = useMemo(() => {
-    if (surfaceCache) return surfaceCache
-    const byName = new Map(SURFACE_MODELS.map((name, i) => [name, scenes[i]]))
-    surfaceCache = buildSurface(byName)
-    return surfaceCache
-  }, [scenes])
+  const models = surfaceModels()
+  const scenes = useRacingPieces(models)
+  const meshes = useMemo(() => surfaceOf(new Map(models.map((name, i) => [name, scenes[i]]))), [models, scenes])
   return (
     <>
       {meshes.map((mesh) => (
@@ -85,7 +82,6 @@ function TrackSurface() {
     </>
   )
 }
-let surfaceCache: THREE.Mesh[] | null = null
 
 /**
  * The tiles as the track wants them, flat with the run-off: no grass strips
@@ -95,6 +91,12 @@ let surfaceCache: THREE.Mesh[] | null = null
  * arch (StartLights puts a real gantry there), and where the pit lane crosses
  * a corner's outside kerb, that kerb comes out.
  */
+const surfaces = new WeakMap<object, THREE.Mesh[]>()
+function surfaceOf(scenes: Map<string, THREE.Object3D>) {
+  if (!surfaces.has(track)) surfaces.set(track, buildSurface(scenes))
+  return surfaces.get(track)!
+}
+
 function buildSurface(scenes: Map<string, THREE.Object3D>) {
   const parts: StaticPart[] = []
   const toLocal = new THREE.Matrix4()
@@ -158,20 +160,18 @@ function RunOff() {
   return <mesh geometry={runOffGeometry()} material={asphalt} receiveShadow />
 }
 
-let runOffCache: THREE.BufferGeometry | null = null
-function runOffGeometry() {
-  if (runOffCache) return runOffCache
+const runOffGeometry = perTrack(() => {
   // In the shape's plane, (x, -z), so turning it flat puts it back at (x, z).
   const flat = (line: { x: number; z: number }[]) => line.map((p) => new THREE.Vector2(p.x, -p.z))
   const [a, b] = track.barriers.map((barrier) => flat(barrier.line))
   const [outer, inner] = Math.abs(THREE.ShapeUtils.area(a)) > Math.abs(THREE.ShapeUtils.area(b)) ? [a, b] : [b, a]
   const shape = new THREE.Shape(outer)
   shape.holes.push(new THREE.Path(inner))
-  runOffCache = new THREE.ShapeGeometry(shape)
-  runOffCache.rotateX(-Math.PI / 2)
-  runOffCache.translate(0, RUNOFF_Y, 0)
-  return runOffCache
-}
+  const geometry = new THREE.ShapeGeometry(shape)
+  geometry.rotateX(-Math.PI / 2)
+  geometry.translate(0, RUNOFF_Y, 0)
+  return geometry
+})
 
 /** A small gap between blocks, like the kit's own layouts. */
 const BLOCK_GAP = 0.02 * TILE
@@ -270,6 +270,6 @@ function BlockPart({
   return <instancedMesh ref={mesh} args={[geometry, material, blocks.length]} castShadow receiveShadow />
 }
 
-for (const name of SURFACE_MODELS) useRacingPiece.preload(name)
+for (const name of surfaceModels()) useRacingPiece.preload(name)
 useRacingModel.preload('barrierRed')
 useRacingModel.preload('barrierWhite')

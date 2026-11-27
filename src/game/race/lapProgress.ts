@@ -1,5 +1,5 @@
 import type * as THREE from 'three'
-import { WALL_OUTER, nearestOnTrack, track, type Pose } from '../track/layout'
+import { WALL_OUTER, nearestOnTrack, onTrackChange, track, type Pose } from '../track/layout'
 
 // How far sideways from a checkpoint's center you can be and still count as
 // crossing its line. Reaches out to the tyre walls on the straights.
@@ -23,7 +23,9 @@ export function crossing(line: Pose, from: THREE.Vector3, to: THREE.Vector3, hal
 export const lapDistance = (x: number, z: number) => track.path[nearestOnTrack(x, z).index].s
 
 /** Each checkpoint's distance round the lap. */
-const CHECKPOINT_S = track.checkpoints.map((c) => lapDistance(c.x, c.z))
+const checkpointDistances = () => track.checkpoints.map((c) => lapDistance(c.x, c.z))
+let CHECKPOINT_S = checkpointDistances()
+onTrackChange(() => (CHECKPOINT_S = checkpointDistances()))
 
 /**
  * A checkpoint also counts once your place along the track has gone past it,

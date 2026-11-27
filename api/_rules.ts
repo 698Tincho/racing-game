@@ -5,8 +5,8 @@
 import type { CarId } from '../src/game/cars'
 
 /**
- * Tracks with a board. The key is the track and its physics version (TRACK_ID in the game's
- * store): bumping it there starts a fresh board here. `minLapMs` is the fastest believable lap,
+ * Circuits with a board. The key is the circuit's id (src/game/track/circuits.ts), which changes
+ * with its layout or the driving physics: a new id starts a fresh board here. `minLapMs` is the fastest believable lap,
  * comfortably under the best real ones, so only made-up times are turned away.
  */
 export const TRACKS: Record<string, { name: string; minLapMs: number }> = {

@@ -16,12 +16,14 @@ const lookAt = new THREE.Vector3()
 const focusWanted = new THREE.Vector3()
 
 const ORBIT_SPEED = 0.06 // rad/s
-const ORBIT_RADIUS = Math.max(board.width, board.depth) * 0.6
-const ORBIT_HEIGHT = Math.max(board.width, board.depth) * 0.45
+// The orbit's size follows the circuit's site.
+const orbitRadius = () => Math.max(board.width, board.depth) * 0.6
+const orbitHeight = () => Math.max(board.width, board.depth) * 0.45
 const MENU_ZOOM_OUT = 1.35
 const MENU_SHIFT = 0.25 // of the screen's width: the middle of the right half
 const MENU_SPLIT_MIN_WIDTH = 860 // narrower, the menu stacks and the whole screen is red (index.css)
 
+// (Every circuit's centreline is sampled about a metre apart, so this holds for all of them.)
 const PATH_STEP = Math.hypot(track.path[1].x - track.path[0].x, track.path[1].z - track.path[0].z)
 const SAMPLES_AHEAD = Math.max(1, Math.round(T.high.trackAhead / PATH_STEP))
 const HIGH_GLIDE = 14 // how quickly the camera settles on its target
@@ -74,9 +76,9 @@ export function ChaseCamera() {
       // Further out on the menu, so the whole circuit fits in the right half.
       const away = phase === 'menu' ? MENU_ZOOM_OUT : 1
       desired.set(
-        board.centerX + Math.cos(a) * ORBIT_RADIUS * away,
-        ORBIT_HEIGHT * away,
-        board.centerZ + Math.sin(a) * ORBIT_RADIUS * away,
+        board.centerX + Math.cos(a) * orbitRadius() * away,
+        orbitHeight() * away,
+        board.centerZ + Math.sin(a) * orbitRadius() * away,
       )
       lookAt.set(board.centerX, -2, board.centerZ)
       cam.position.lerp(desired, 1 - Math.exp(-1.5 * dt))

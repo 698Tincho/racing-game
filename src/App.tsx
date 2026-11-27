@@ -1,4 +1,4 @@
-import { Suspense, memo, useCallback, useEffect, useState, type ComponentType } from 'react'
+import { Fragment, Suspense, memo, useCallback, useEffect, useState, type ComponentType } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { Environment, KeyboardControls, Lightformer, PerformanceMonitor } from '@react-three/drei'
@@ -26,6 +26,8 @@ import { StartLights } from './game/track/StartLights'
 import { FOG, PALETTE } from './game/scene/palette'
 import { expectSteps, type LoadStep } from './game/loading'
 import { Ready } from './game/Ready'
+import { useGame } from './game/race/store'
+import { drawCover } from './game/circuitSwitch'
 import { CarShowcase, drawShowcase } from './ui/CarShowcase'
 import { Hud } from './ui/Hud'
 import { Screens } from './ui/Screens'
@@ -37,6 +39,8 @@ const debug = new URLSearchParams(window.location.search).has('debug')
 export default function App() {
   // Resolution adapts to the machine: sharper on fast GPUs, lighter on laptops.
   const [dpr, setDpr] = useState(1.5)
+  // Another circuit: the world is built again for it (behind the cover, see circuitSwitch).
+  const circuitId = useGame((s) => s.circuitId)
 
   return (
     <KeyboardControls map={keyMap}>
@@ -60,16 +64,18 @@ export default function App() {
         />
         <color attach="background" args={[FOG.color]} />
         <fog attach="fog" args={[FOG.color, FOG.near, FOG.far]} />
-        <Sky />
-        <Lights />
-        <Ground />
+        <Fragment key={circuitId}>
+          <Sky />
+          <Lights />
+          <Ground />
+          <Scene />
+        </Fragment>
         {/* Soft reflections on the car: a violet dusk sky, dark ground and a low orange sun, rendered once. */}
         <Environment resolution={128} frames={1}>
           <color attach="background" args={['#4d467f']} />
           <Lightformer form="rect" intensity={0.45} color="#4d4356" position={[0, -10, 0]} rotation-x={-Math.PI / 2} scale={[100, 100, 1]} />
           <Lightformer form="circle" intensity={5} color={PALETTE.sun} position={[-16, 12, 17]} scale={7} />
         </Environment>
-        <Scene />
         <CarShowcase />
         <Frame />
         <KartAudio />
@@ -161,14 +167,16 @@ function OneByOne({ parts }: { parts: typeof SCENERY }) {
 }
 
 /**
- * Renders each frame: the world, then the menu's turntable and shade over it
- * (see CarShowcase). Taking over rendering is why this runs at priority 1.
+ * Renders each frame: the world, the cover that hides it while another circuit
+ * is built (circuitSwitch), then the menu's turntable and shade over it (see
+ * CarShowcase). Taking over rendering is why this runs at priority 1.
  * (Behind the loading screen it draws too, so each part's first, slowest
  * frame happens there, as it arrives, rather than all at once after.)
  */
 function Frame() {
-  useFrame(({ gl, scene, camera }) => {
+  useFrame(({ gl, scene, camera }, delta) => {
     gl.render(scene, camera)
+    drawCover(gl, camera, delta)
     drawShowcase(gl, camera)
   }, 1)
   return null

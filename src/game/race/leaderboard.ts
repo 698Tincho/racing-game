@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { BoardResponse } from '../../../api/_rules'
+import { TRACKS, type BoardResponse } from '../../../api/_rules'
 
 // ---------------------------------------------------------------------------
 // The online leaderboard (api/leaderboard.ts, api/laps.ts). No accounts: this
@@ -7,6 +7,9 @@ import type { BoardResponse } from '../../../api/_rules'
 // on the board; the nickname is remembered for next time. If the API can't be
 // reached the board just doesn't show, and the game carries on as before.
 // ---------------------------------------------------------------------------
+
+/** Does this circuit have a board? (One being designed doesn't yet.) */
+export const hasBoard = (track: string) => track in TRACKS
 
 const DEVICE_KEY = 'kart-race:device'
 const NICKNAME_KEY = 'kart-race:nickname'
@@ -106,6 +109,7 @@ export const useBoard = create<BoardState>()((set, get) => ({
 
   startRun: async (track) => {
     set({ run: null })
+    if (!hasBoard(track)) return
     try {
       const { run } = await call<{ run: string }>('/api/runs', post({ track, device: deviceId() }))
       set({ run: { id: run, track } })
@@ -115,6 +119,8 @@ export const useBoard = create<BoardState>()((set, get) => ({
   },
 
   load: async (track, mine) => {
+    // No board for this circuit: nothing to show, as when it can't be reached.
+    if (!hasBoard(track)) return set({ status: 'offline' })
     set((s) => ({ status: s.board?.track === track ? s.status : 'loading', mine: s.mine && !mine ? false : s.mine }))
     const params = new URLSearchParams({ track })
     if (mine) params.set('device', deviceId())

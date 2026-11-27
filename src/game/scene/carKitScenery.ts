@@ -1,5 +1,5 @@
 import { CAR_SCALE } from '../cars'
-import { beyondWall } from '../track/layout'
+import { beyondWall, onTrackChange } from '../track/layout'
 import { board } from './boardSize'
 import {
   EMERGENCY_BAY,
@@ -221,4 +221,5 @@ function build() {
   return { vehicles, tires, cones, parts }
 }
 
-export const carKitScenery = build()
+export let carKitScenery = build()
+onTrackChange(() => (carKitScenery = build()))

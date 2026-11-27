@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { finishRecording, loadGhost, resetRecorder } from './ghostLap'
 import { DEFAULT_CAR, isCarId, type CarId } from '../cars'
 import { QUALY_LAPS } from '../../../api/_rules'
+import { saveCircuit, savedCircuit } from '../track/circuits'
+import { selectTrack } from '../track/layout'
 
 // Two ways to play:
 //   practice — as many laps as you like. First lap from the grid, then flying
@@ -15,9 +17,6 @@ export type Mode = 'practice' | 'qualy'
 /** Qualy: timed laps in a run. The leaderboard's rules count on the same number. */
 export const ATTEMPTS = QUALY_LAPS
 export const COUNTDOWN_SECONDS = 3
-// Bump this when the track's layout or the driving physics change, so old
-// records don't carry over.
-export const TRACK_ID = 'lider-7'
 
 export type Phase =
   | 'menu' // title screen
@@ -37,6 +36,8 @@ export type SectorTime = { time: number; status: SectorStatus }
 export const SECTORS = 3
 
 type GameState = {
+  /** The circuit you race on (saved). Its id keys the records, the ghost and the leaderboard. */
+  circuitId: string
   mode: Mode
   phase: Phase
   /** Qualy: times of the attempts done so far. */
@@ -46,7 +47,7 @@ type GameState = {
   /** Practice: every completed lap this session. */
   practiceLaps: number[]
   lastLapTime: number | null
-  /** Best qualy attempt ever on this track (saved in the browser). */
+  /** Best qualy attempt ever on this circuit (saved in the browser). */
   personalBest: number | null
   /** Record before this session started, to show "new record!". */
   previousBest: number | null
@@ -82,6 +83,8 @@ type GameState = {
   /** From the menu: slide it away, then look around the track (MainMenu calls setViewing when it's gone). */
   viewTrack: () => void
   setCar: (id: CarId) => void
+  /** Race on another circuit (from the menu): the world is rebuilt for it, and its own records load. */
+  setCircuit: (id: string) => void
 }
 
 const carKey = 'kart-race:car'
@@ -110,41 +113,43 @@ export const race = {
   leftPits: false,
 }
 
-const bestKey = `kart-race:best:${TRACK_ID}`
-const loadBest = (): number | null => {
+const bestKey = (circuit: string) => `kart-race:best:${circuit}`
+const loadBest = (circuit: string): number | null => {
   try {
-    const v = localStorage.getItem(bestKey)
+    const v = localStorage.getItem(bestKey(circuit))
     return v ? Number(v) : null
   } catch {
     return null
   }
 }
-const saveBest = (t: number) => {
+const saveBest = (circuit: string, t: number) => {
   try {
-    localStorage.setItem(bestKey, String(t))
+    localStorage.setItem(bestKey(circuit), String(t))
   } catch {
     // private mode etc: the record just won't survive a reload
   }
 }
 
-const sectorsKey = `kart-race:sectors:${TRACK_ID}`
-const loadSectors = (): (number | null)[] => {
+const sectorsKey = (circuit: string) => `kart-race:sectors:${circuit}`
+const loadSectors = (circuit: string): (number | null)[] => {
   try {
-    const v = JSON.parse(localStorage.getItem(sectorsKey) ?? 'null')
+    const v = JSON.parse(localStorage.getItem(sectorsKey(circuit)) ?? 'null')
     return Array.isArray(v) && v.length === SECTORS ? v : [null, null, null]
   } catch {
     return [null, null, null]
   }
 }
-const saveSectors = (v: (number | null)[]) => {
+const saveSectors = (circuit: string, v: (number | null)[]) => {
   try {
-    localStorage.setItem(sectorsKey, JSON.stringify(v))
+    localStorage.setItem(sectorsKey(circuit), JSON.stringify(v))
   } catch {
     // fine, they just won't survive a reload
   }
 }
 
-loadGhost(TRACK_ID)
+// The same circuit as the track (layout.ts reads the saved choice too).
+const firstCircuit = savedCircuit()
+loadGhost(firstCircuit)
 
 const resetLap = () => {
   race.time = 0
@@ -158,19 +163,20 @@ const resetLap = () => {
 }
 
 export const useGame = create<GameState>()((set, get) => ({
+  circuitId: firstCircuit,
   mode: 'qualy',
   phase: 'menu',
   attempts: [],
   attemptSectors: [],
   practiceLaps: [],
   lastLapTime: null,
-  personalBest: loadBest(),
-  previousBest: loadBest(),
+  personalBest: loadBest(firstCircuit),
+  previousBest: loadBest(firstCircuit),
   gridId: 0,
   sectors: [],
   lastSectors: [],
   bestSectors: [null, null, null],
-  recordSectors: loadSectors(),
+  recordSectors: loadSectors(firstCircuit),
   showGhost: true,
   viewing: false,
   leavingMenu: false,
@@ -225,7 +231,7 @@ export const useGame = create<GameState>()((set, get) => ({
     }
 
     const isRecord = personalBest === null || time < personalBest
-    if (isRecord) saveBest(time)
+    if (isRecord) saveBest(get().circuitId, time)
     const laps = [...attempts, time]
     const qualyLap = {
       attempts: laps,
@@ -265,7 +271,7 @@ export const useGame = create<GameState>()((set, get) => ({
       status = 'purple'
       nextRecord[index] = t
       nextBest[index] = t
-      saveSectors(nextRecord)
+      saveSectors(get().circuitId, nextRecord)
     } else if (best === null || t < best) {
       status = 'green'
       nextBest[index] = t
@@ -289,6 +295,31 @@ export const useGame = create<GameState>()((set, get) => ({
     } catch {
       // private mode etc: the choice just won't survive a reload
     }
+  },
+  setCircuit: (circuitId) => {
+    if (circuitId === get().circuitId || get().phase !== 'menu') return
+    // The track first: the world is rebuilt from it as soon as circuitId changes.
+    selectTrack(circuitId)
+    saveCircuit(circuitId)
+    loadGhost(circuitId)
+    resetRecorder()
+    const best = loadBest(circuitId)
+    set((s) => ({
+      circuitId,
+      personalBest: best,
+      previousBest: best,
+      recordSectors: loadSectors(circuitId),
+      bestSectors: [null, null, null],
+      attempts: [],
+      attemptSectors: [],
+      practiceLaps: [],
+      lastLapTime: null,
+      sectors: [],
+      lastSectors: [],
+      viewing: false,
+      leavingMenu: false,
+      gridId: s.gridId + 1,
+    }))
   },
 }))
 

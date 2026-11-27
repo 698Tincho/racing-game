@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { TRACK_ID, bestOf, formatDelta, formatTime, useGame } from '../game/race/store'
+import { bestOf, formatDelta, formatTime, useGame } from '../game/race/store'
 import { playUiSound } from '../game/audio/sound'
 import { CARS } from '../game/cars'
 import { MainMenu, nextCar } from './MainMenu'
@@ -53,7 +53,7 @@ export function Screens() {
     // A qualifying run starting (from the menu, or Try again): get its leaderboard ticket.
     const stopRuns = useGame.subscribe((now, before) => {
       const starting = now.mode === 'qualy' && now.phase === 'outlap' && now.attempts.length === 0
-      if (starting && (before.phase !== 'outlap' || before.gridId !== now.gridId)) void useBoard.getState().startRun(TRACK_ID)
+      if (starting && (before.phase !== 'outlap' || before.gridId !== now.gridId)) void useBoard.getState().startRun(now.circuitId)
     })
     // Small sounds for picking a car, starting a race and opening the track view.
     const stopSounds = useGame.subscribe((now, before) => {

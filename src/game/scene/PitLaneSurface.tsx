@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 import { trackAsphalt, useRacingPiece } from '../kit'
 import { PIT_LANE_HALF_WIDTH, PIT_LANE_Y, pitLane } from '../track/pitLane'
-import { ROAD_HALF_WIDTH, nearestOnTrack, offsetLeft } from '../track/layout'
+import { ROAD_HALF_WIDTH, nearestOnTrack, offsetLeft, perTrack } from '../track/layout'
 import { PALETTE } from './palette'
 
 const LIMIT_LINE = 0.4
@@ -85,19 +85,17 @@ function ribbon(left: number[], right: number[], y: number) {
   return geometry
 }
 
-let surfaceCache: THREE.BufferGeometry | null = null
-/** The lane's asphalt, built once. */
-function laneSurface() {
-  if (!surfaceCache) {
-    const { left, right } = laneWidths()
-    surfaceCache = ribbon(left, right, PIT_LANE_Y)
-  }
-  return surfaceCache
-}
+/** The lane's asphalt, built once per circuit (where it meets the track depends on the corners). */
+const laneSurface = perTrack(() => {
+  const { left, right } = laneWidths()
+  return ribbon(left, right, PIT_LANE_Y)
+})
 
-const limited = pitLane.path.filter((p) => p.limiter)
 /** Where the speed limit starts and ends. */
-const limitLines = [limited[0], limited[limited.length - 1]]
+function limitLines() {
+  const limited = pitLane.path.filter((p) => p.limiter)
+  return [limited[0], limited[limited.length - 1]]
+}
 
 /** The pit lane's asphalt, the same as the track's, plus its limiter lines. */
 export function PitLaneSurface() {
@@ -117,7 +115,7 @@ export function PitLaneSurface() {
   return (
     <>
       <mesh geometry={surface} material={asphalt} receiveShadow />
-      {limitLines.map((p, i) => (
+      {limitLines().map((p, i) => (
         <mesh key={i} position={[p.x, PIT_LANE_Y + 0.003, p.z]} rotation-y={p.yaw} receiveShadow>
           <boxGeometry args={[PIT_LANE_HALF_WIDTH * 2, 0.002, LIMIT_LINE]} />
           <meshStandardMaterial color={PALETTE.lotLine} roughness={0.8} />

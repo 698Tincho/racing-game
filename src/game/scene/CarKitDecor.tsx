@@ -30,12 +30,13 @@ const PARKED_MODELS = [...new Set([...PARKED_VEHICLES, ...PART_MODELS, 'cone'])]
 
 /**
  * The vehicles, parts and cones never move, so they're baked into one mesh
- * per material: the whole lot draws in a call or two. Built once.
+ * per material: the whole lot draws in a call or two. Built once per circuit.
  */
 function ParkedThings() {
   const scenes = useCarKitModels(PARKED_MODELS)
   const meshes = useMemo(() => {
-    if (parkedCache) return parkedCache
+    const cached = parked.get(carKitScenery)
+    if (cached) return cached
     const byName = new Map(PARKED_MODELS.map((name, i) => [name, scenes[i]]))
     const place = (x: number, y: number, z: number, yaw: number, scale: number) =>
       new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(UP, yaw), new THREE.Vector3(scale, scale, scale))
@@ -45,12 +46,13 @@ function ParkedThings() {
       ...carKitScenery.cones.flatMap((c) => partsOf(byName.get('cone')!, place(c.x, FLOOR_Y, c.z, 0, CAR_SCALE))),
     ]
     // The kit's models all share one texture, so one material per kind will do.
-    parkedCache = mergeParts(parts, (m) => `${m.name}|${m.transparent}`)
-    for (const mesh of parkedCache) {
+    const meshes = mergeParts(parts, (m) => `${m.name}|${m.transparent}`)
+    for (const mesh of meshes) {
       mesh.castShadow = true
       mesh.receiveShadow = true
     }
-    return parkedCache
+    parked.set(carKitScenery, meshes)
+    return meshes
   }, [scenes])
   return (
     <>
@@ -60,7 +62,8 @@ function ParkedThings() {
     </>
   )
 }
-let parkedCache: THREE.Mesh[] | null = null
+/** Per circuit's scenery. */
+const parked = new WeakMap<object, THREE.Mesh[]>()
 
 /** Every copy of one tyre model, as one instanced mesh per part. */
 function Tires({ model, placements }: { model: string; placements: TirePlacement[] }) {

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useKeyboardControls } from '@react-three/drei'
 import {
@@ -21,7 +21,8 @@ import { TUNING as T } from './tuning'
 import type { Controls } from './controls'
 import { FRAME_ORDER, SIM_DT } from './time'
 
-const SPAWN = { x: track.start.x, y: 1.2, z: track.start.z }
+/** How high above the road the car is dropped in. */
+const SPAWN_Y = 1.2
 // The walls stop you well before this, so being further out means something went wrong.
 const OFF_TRACK_DISTANCE = WALL_OUTER + 3
 // How high each surface is drawn relative to the road, in metres.
@@ -51,6 +52,8 @@ export function Kart() {
   const { world, rapier } = useRapier()
   const [, getKeys] = useKeyboardControls<Controls>()
 
+  // Pole position on this circuit (the kart is mounted again for another one).
+  const [spawn] = useState(() => ({ x: track.start.x, y: SPAWN_Y, z: track.start.z }))
   const yaw = useRef(track.start.yaw)
   const steer = useRef(0)
   const drift = useRef(0)
@@ -63,7 +66,7 @@ export function Kart() {
   const lastSetSpeed = useRef(0)
 
   // The pose one step ago, to draw smoothly between steps.
-  const previous = useRef({ position: new THREE.Vector3(SPAWN.x, SPAWN.y - T.radius, SPAWN.z), yaw: track.start.yaw })
+  const previous = useRef({ position: new THREE.Vector3(spawn.x, spawn.y - T.radius, spawn.z), yaw: track.start.yaw })
   const snap = useRef(true) // the kart jumped: don't smooth across it
 
   useLayoutEffect(() => {
@@ -72,7 +75,7 @@ export function Kart() {
   }, [])
 
   const teleport = (rb: RapierRigidBody, x: number, z: number, heading: number) => {
-    rb.setTranslation({ x, y: SPAWN.y, z }, true)
+    rb.setTranslation({ x, y: SPAWN_Y, z }, true)
     rb.setLinvel({ x: 0, y: 0, z: 0 }, true)
     lastSetSpeed.current = 0
     yaw.current = heading
@@ -285,7 +288,7 @@ export function Kart() {
       <RigidBody
         ref={body}
         colliders={false}
-        position={[SPAWN.x, SPAWN.y, SPAWN.z]}
+        position={[spawn.x, spawn.y, spawn.z]}
         lockRotations
         ccd
         canSleep={false}
