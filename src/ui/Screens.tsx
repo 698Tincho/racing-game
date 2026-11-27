@@ -5,6 +5,8 @@ import { CARS } from '../game/cars'
 import { MainMenu, nextCar } from './MainMenu'
 import { Loading } from './Loading'
 import { useLoading } from '../game/loading'
+import { useBoard } from '../game/race/leaderboard'
+import { OnlineBoard } from './OnlineBoard'
 
 /**
  * Menu, and the qualifying results.
@@ -19,6 +21,8 @@ export function Screens() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || !useLoading.getState().finished) return
+      // Typing a nickname: the keys are for the field, not the game.
+      if ((e.target as HTMLElement).closest?.('input, textarea')) return
       const { phase, viewing, startQualy, startPractice, backToMenu, setViewing } = useGame.getState()
       const confirm = e.code === 'Enter' || e.code === 'Space'
       // Tabbed onto a menu or results button: let Enter or Space activate that one.
@@ -93,59 +97,66 @@ function Viewing() {
 /** Qualy: after the last timed lap. Your best lap counts; try again, or back to the menu. */
 function Results() {
   const attempts = useGame((s) => s.attempts)
+  const attemptSectors = useGame((s) => s.attemptSectors)
   const previousBest = useGame((s) => s.previousBest)
   const startQualy = useGame((s) => s.startQualy)
   const menu = useGame((s) => s.backToMenu)
+  // Side by side with the online board, unless it can't be reached.
+  const online = useBoard((s) => s.status !== 'offline')
 
   const best = bestOf(attempts)
+  const bestSectors = best === null ? null : (attemptSectors[attempts.indexOf(best)] ?? null)
   const isRecord = best !== null && (previousBest === null || best < previousBest)
   // How far this run's best was from the record you had going in: under it (a new record) or off it.
   const gap = best !== null && previousBest !== null ? best - previousBest : null
 
   return (
     <div className="screen screen-dim">
-      <div className="card" role="dialog" aria-label="Qualifying results">
-        <p className="eyebrow">Qualifying results</p>
-        <h1 className="results-time">{formatTime(best)}</h1>
-        <p className="results-verdict">
-          {isRecord ? (
-            <>
-              <span className="tag tag-gold">New record</span>
-              {gap === null ? (
-                <span>Your first record on this track.</span>
-              ) : (
+      <div className={`card ${online ? 'card-results' : ''}`} role="dialog" aria-label="Qualifying results">
+        <section className="results-run">
+          <p className="eyebrow">Qualifying results</p>
+          <h1 className="results-time">{formatTime(best)}</h1>
+          <p className="results-verdict">
+            {isRecord ? (
+              <>
+                <span className="tag tag-gold">New record</span>
+                {gap === null ? (
+                  <span>Your first record on this track.</span>
+                ) : (
+                  <span>
+                    <strong>{formatDelta(gap)}</strong> under your old record of {formatTime(previousBest)}
+                  </span>
+                )}
+              </>
+            ) : gap !== null ? (
+              <>
+                <span className="tag tag-bad">{formatDelta(gap)}</span>
                 <span>
-                  <strong>{formatDelta(gap)}</strong> under your old record of {formatTime(previousBest)}
+                  off your record of <strong>{formatTime(previousBest)}</strong>
                 </span>
-              )}
-            </>
-          ) : gap !== null ? (
-            <>
-              <span className="tag tag-bad">{formatDelta(gap)}</span>
-              <span>
-                off your record of <strong>{formatTime(previousBest)}</strong>
-              </span>
-            </>
-          ) : null}
-        </p>
+              </>
+            ) : null}
+          </p>
 
-        <ol className="laps">
-          {attempts.map((t, i) => (
-            <li key={i} className={t === best ? 'lap-best' : ''}>
-              <span>Lap {i + 1}</span>
-              <span>{formatTime(t)}</span>
-            </li>
-          ))}
-        </ol>
+          <ol className="laps">
+            {attempts.map((t, i) => (
+              <li key={i} className={t === best ? 'lap-best' : ''}>
+                <span>Lap {i + 1}</span>
+                <span>{formatTime(t)}</span>
+              </li>
+            ))}
+          </ol>
 
-        <div className="actions">
-          <button className="cta" onClick={startQualy}>
-            Try again <kbd>Enter</kbd>
-          </button>
-          <button className="ghost" onClick={menu}>
-            Back to menu <kbd>Esc</kbd>
-          </button>
-        </div>
+          <div className="actions">
+            <button className="cta" onClick={startQualy}>
+              Try again <kbd>Enter</kbd>
+            </button>
+            <button className="ghost" onClick={menu}>
+              Back to menu <kbd>Esc</kbd>
+            </button>
+          </div>
+        </section>
+        <OnlineBoard best={best} sectors={bestSectors} />
       </div>
     </div>
   )

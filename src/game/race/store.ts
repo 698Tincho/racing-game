@@ -16,7 +16,7 @@ export const ATTEMPTS = 3
 export const COUNTDOWN_SECONDS = 3
 // Bump this when the track's layout or the driving physics change, so old
 // records don't carry over.
-const TRACK_ID = 'lider-7'
+export const TRACK_ID = 'lider-7'
 
 export type Phase =
   | 'menu' // title screen
@@ -40,6 +40,8 @@ type GameState = {
   phase: Phase
   /** Qualy: times of the attempts done so far. */
   attempts: number[]
+  /** Qualy: each attempt's three sector times, for sending a lap to the leaderboard. */
+  attemptSectors: number[][]
   /** Practice: every completed lap this session. */
   practiceLaps: number[]
   lastLapTime: number | null
@@ -158,6 +160,7 @@ export const useGame = create<GameState>()((set, get) => ({
   mode: 'qualy',
   phase: 'menu',
   attempts: [],
+  attemptSectors: [],
   practiceLaps: [],
   lastLapTime: null,
   personalBest: loadBest(),
@@ -192,6 +195,7 @@ export const useGame = create<GameState>()((set, get) => ({
       mode: 'qualy',
       phase: 'outlap',
       attempts: [],
+      attemptSectors: [],
       lastLapTime: null,
       sectors: [],
       lastSectors: [],
@@ -206,7 +210,7 @@ export const useGame = create<GameState>()((set, get) => ({
     // Sector 3 ends at the line.
     get().completeSector(SECTORS - 1, time)
     finishRecording(time)
-    const { mode, attempts, practiceLaps, personalBest, sectors } = get()
+    const { mode, attempts, attemptSectors, practiceLaps, personalBest, sectors } = get()
     const lapSectors = { lastSectors: sectors, sectors: [] as SectorTime[] }
 
     if (mode === 'practice') {
@@ -222,7 +226,13 @@ export const useGame = create<GameState>()((set, get) => ({
     const isRecord = personalBest === null || time < personalBest
     if (isRecord) saveBest(time)
     const laps = [...attempts, time]
-    const qualyLap = { attempts: laps, lastLapTime: time, personalBest: isRecord ? time : personalBest, ...lapSectors }
+    const qualyLap = {
+      attempts: laps,
+      attemptSectors: [...attemptSectors, sectors.map((s) => s.time)],
+      lastLapTime: time,
+      personalBest: isRecord ? time : personalBest,
+      ...lapSectors,
+    }
 
     if (laps.length >= ATTEMPTS) {
       // Last timed lap: stop the clock on it and show the results.

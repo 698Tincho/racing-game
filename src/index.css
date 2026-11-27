@@ -554,6 +554,143 @@ kbd,
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
 }
 
+/* With the online board: the run on the left, the board on the right (stacked on narrow screens). */
+.card-results {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 32px;
+  width: min(900px, 100%);
+}
+
+.results-board {
+  padding-left: 32px;
+  border-left: 1px solid var(--line);
+}
+
+.board {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.board li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+}
+
+.board-rank {
+  color: var(--grey);
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 400;
+  font-synthesis: none;
+}
+
+.board-name {
+  overflow: hidden;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.board-time {
+  font-weight: 800;
+  font-stretch: 75%;
+  font-variant-numeric: tabular-nums;
+}
+
+.board-time.is-fastest {
+  color: var(--purple);
+}
+
+/* Your own line: a red edge and a red tint. */
+.board li.is-mine {
+  box-shadow: inset 4px 0 0 var(--red);
+  background: rgba(208, 20, 47, 0.2);
+}
+
+.board-you {
+  margin-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.board-note {
+  margin: 14px 0 0;
+  color: var(--grey);
+  font-size: 14px;
+}
+
+.board-note strong {
+  color: var(--white);
+}
+
+.board-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  color: var(--white);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.board-form-row {
+  display: flex;
+  gap: 10px;
+}
+
+.board-form input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 0;
+  background: var(--carbon);
+  color: var(--white);
+  font: 700 16px/1 var(--font);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.board-form input::placeholder {
+  color: var(--grey);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.board-form input:focus-visible {
+  outline: 2px solid var(--white);
+  outline-offset: 2px;
+}
+
+.board-error {
+  margin: 8px 0 0;
+  color: #ff8a8a;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+@media (max-width: 860px) {
+  .card-results {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .results-board {
+    padding: 24px 0 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+}
+
 .card h1 {
   margin: 10px 0 10px;
   font-size: 56px;
@@ -1144,10 +1281,18 @@ kbd,
   line-height: 0.7;
 }
 
-/* Your record: purple, as the fastest time on a timing screen. */
+/* Timing colours: purple for the fastest lap of all (the world record), green for your own best. */
 .menu-stats-record {
   color: var(--purple);
-  font-variant-numeric: tabular-nums;
+}
+
+.menu-stats-personal {
+  color: var(--green);
+}
+
+/* Who holds the world record, after the label. */
+.menu-stats-holder {
+  letter-spacing: 0.06em;
 }
 
 /* Just the figures in the heading face; units and words stay in Archivo. */

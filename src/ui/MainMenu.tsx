@@ -1,6 +1,7 @@
 import { useEffect, useState, type AnimationEvent, type MouseEvent } from 'react'
 import { CARS, carRenderUrl, type CarId } from '../game/cars'
-import { ATTEMPTS, formatTime, useGame } from '../game/race/store'
+import { ATTEMPTS, TRACK_ID, formatTime, useGame } from '../game/race/store'
+import { useBoard } from '../game/race/leaderboard'
 import { track } from '../game/track/layout'
 import { MENU_LEAN, showcaseSlot } from './CarShowcase'
 import { Key, WasdKeys } from './Key'
@@ -210,6 +211,13 @@ const SECTORS = track.sectorEnds.length + 1
 function TrackCard() {
   const personalBest = useGame((s) => s.personalBest)
   const viewTrack = useGame((s) => s.viewTrack)
+  // The online board's fastest lap, if it can be reached (a cached read, on each visit to the menu).
+  const board = useBoard((s) => s.board)
+  const online = useBoard((s) => s.status === 'ready')
+  useEffect(() => {
+    void useBoard.getState().load(TRACK_ID, false)
+  }, [])
+  const worldRecord = online && board?.track === TRACK_ID ? (board.top[0] ?? null) : undefined
   return (
     <div className="menu-track">
       <Eyebrow>Track</Eyebrow>
@@ -235,12 +243,28 @@ function TrackCard() {
               <span className="menu-stats-num">{SECTORS}</span>
             </dd>
           </div>
+          {/* Purple: the fastest lap of all, as on a timing screen. Hidden when the board can't be reached. */}
+          {worldRecord !== undefined && (
+            <div>
+              <dt>
+                World record{worldRecord && <span className="menu-stats-holder"> · {worldRecord.nickname}</span>}
+              </dt>
+              {worldRecord === null ? (
+                <dd className="menu-stats-empty">No time yet</dd>
+              ) : (
+                <dd className="menu-stats-record">
+                  <span className="menu-stats-num">{formatTime(worldRecord.timeMs / 1000)}</span>
+                </dd>
+              )}
+            </div>
+          )}
+          {/* Green: your personal best. */}
           <div>
             <dt>Your record</dt>
             {personalBest === null ? (
               <dd className="menu-stats-empty">No time yet</dd>
             ) : (
-              <dd className="menu-stats-record">
+              <dd className="menu-stats-personal">
                 <span className="menu-stats-num">{formatTime(personalBest)}</span>
               </dd>
             )}
