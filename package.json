@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "db:schema": "node --env-file=.env.local scripts/db-schema.mjs",
-    "db:schema:prod": "node --env-file=.env.production scripts/db-schema.mjs"
+    "db:schema:prod": "node --env-file=.env.production scripts/db-schema.mjs",
+    "board": "node --env-file=.env.production scripts/board.mjs",
+    "board:local": "node --env-file=.env.local scripts/board.mjs"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",

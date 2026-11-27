@@ -258,9 +258,9 @@ function TrackCard() {
               )}
             </div>
           )}
-          {/* Green: your personal best. */}
+          {/* Green: your personal best. It's kept in this browser (localStorage), so it says so. */}
           <div>
-            <dt>Your record</dt>
+            <dt>Best time on this browser</dt>
             {personalBest === null ? (
               <dd className="menu-stats-empty">No time yet</dd>
             ) : (

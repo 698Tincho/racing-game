@@ -15,6 +15,8 @@ export function OnlineBoard({ best, sectors }: { best: number | null; sectors: n
   const status = useBoard((s) => s.status)
   // Only once the board with this browser's own place has arrived (the menu's copy hasn't got it).
   const mine = useBoard((s) => s.mine)
+  // Only laps from a run the server knows about can go on the board.
+  const hasRun = useBoard((s) => s.run?.track === TRACK_ID)
   const sending = useBoard((s) => s.sending)
   const sendError = useBoard((s) => s.sendError)
   const carId = useGame((s) => s.carId)
@@ -32,7 +34,7 @@ export function OnlineBoard({ best, sectors }: { best: number | null; sectors: n
   const lap = best !== null && sectors?.length === 3 ? { time: best, sectors } : null
   const beatsOwn = lap !== null && (you === null || ms(lap.time) < you.timeMs)
   const makesBoard = lap !== null && (top.length < BOARD_SIZE || ms(lap.time) < top[top.length - 1].timeMs)
-  const offer = status === 'ready' && mine && sending === 'idle' && beatsOwn && makesBoard
+  const offer = status === 'ready' && mine && hasRun && sending === 'idle' && beatsOwn && makesBoard
 
   const submit = (name: string) => {
     if (!lap) return

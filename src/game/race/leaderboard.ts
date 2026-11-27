@@ -42,14 +42,14 @@ const saveNickname = (nickname: string) => {
   }
 }
 
-async function call(path: string, init?: RequestInit): Promise<BoardResponse> {
+async function call<T = BoardResponse>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController()
   const timer = window.setTimeout(() => controller.abort(), TIMEOUT_MS)
   try {
     const response = await fetch(path, { ...init, signal: controller.signal })
     const body = await response.json().catch(() => ({}))
     if (!response.ok) throw new LeaderboardError(response.status, (body as { error?: string }).error ?? 'The leaderboard is offline')
-    return body as BoardResponse
+    return body as T
   } catch (error) {
     if (error instanceof LeaderboardError) throw error
     throw new LeaderboardError(0, 'The leaderboard is offline')
@@ -69,6 +69,8 @@ class LeaderboardError extends Error {
 
 export type LapToSend = { track: string; nickname: string; carId: string; time: number; sectors: number[] }
 
+const post = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+
 type BoardState = {
   /** The last board fetched, for `track`. */
   board: BoardResponse | null
@@ -77,8 +79,15 @@ type BoardState = {
   /** Whether `board` was fetched with this browser's id, so its `you` can be trusted. */
   mine: boolean
   sending: 'idle' | 'sending' | 'sent' | 'error'
+  /**
+   * The current qualifying run's ticket from the server (api/runs.ts), asked for as the run starts.
+   * A lap is only taken with it, so without one (offline when the run began) nothing is offered.
+   */
+  run: { id: string; track: string } | null
   /** Why a send failed, to show under the nickname field. */
   sendError: string | null
+  /** A qualifying run on `track` is starting: get its ticket. */
+  startRun: (track: string) => Promise<void>
   /** Fetch the board. `mine`: include this browser's place (not cached), for the results. */
   load: (track: string, mine: boolean) => Promise<void>
   /** Send a qualifying lap; the board comes back updated. */
@@ -87,12 +96,23 @@ type BoardState = {
   resetSend: () => void
 }
 
-export const useBoard = create<BoardState>()((set) => ({
+export const useBoard = create<BoardState>()((set, get) => ({
   board: null,
   status: 'idle',
   mine: false,
+  run: null,
   sending: 'idle',
   sendError: null,
+
+  startRun: async (track) => {
+    set({ run: null })
+    try {
+      const { run } = await call<{ run: string }>('/api/runs', post({ track, device: deviceId() }))
+      set({ run: { id: run, track } })
+    } catch {
+      // Offline: this run won't go on the board.
+    }
+  },
 
   load: async (track, mine) => {
     set((s) => ({ status: s.board?.track === track ? s.status : 'loading', mine: s.mine && !mine ? false : s.mine }))
@@ -106,24 +126,29 @@ export const useBoard = create<BoardState>()((set) => ({
   },
 
   send: async (lap) => {
+    const run = get().run
+    if (!run || run.track !== lap.track) return
     set({ sending: 'sending', sendError: null })
     try {
-      const board = await call('/api/laps', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const board = await call(
+        '/api/laps',
+        post({
           track: lap.track,
           device: deviceId(),
+          run: run.id,
           nickname: lap.nickname,
           carId: lap.carId,
           timeMs: Math.round(lap.time * 1000),
           sectorsMs: lap.sectors.map((s) => Math.round(s * 1000)),
         }),
-      })
+      )
       saveNickname(lap.nickname)
-      set({ board, status: 'ready', mine: true, sending: 'sent' })
+      // The ticket is used up: the next run asks for a new one.
+      set({ board, status: 'ready', mine: true, sending: 'sent', run: null })
     } catch (error) {
-      set({ sending: 'error', sendError: (error as Error).message })
+      const failure = error as LeaderboardError
+      // A refused ticket won't work a second time; a network blip can be retried with the same one.
+      set({ sending: 'error', sendError: failure.message, run: failure.status === 403 ? null : run })
     }
   },
 

@@ -1,14 +1,16 @@
 // POST /api/laps: a qualifying lap from the game, for the board.
 //
-//   {"track":"lider-7","device":"<uuid>","nickname":"TINCHO","carId":"race",
+//   {"track":"lider-7","device":"<uuid>","run":"<uuid>","nickname":"TINCHO","carId":"race",
 //    "timeMs":36811,"sectorsMs":[12001,12500,12310]}
 //
-// No accounts, so the checks are about believability (_rules.ts) and pace: a few submissions a
-// minute per address. Each browser keeps only its best per track; a slower lap changes nothing.
+// No accounts, so the checks are about believability (_rules.ts), the run's ticket (runs.ts: the
+// lap must come from a run that took at least as long as driving it would) and pace: a few
+// submissions a minute per address. Each browser keeps only its best per track; a slower lap
+// changes nothing.
 
 import { hasDatabase, query } from './_db.js'
 import { addressHash, json, readBoard } from './_board.js'
-import { readSubmission } from './_rules.js'
+import { minRunMs, readSubmission } from './_rules.js'
 
 const MAX_BYTES = 2_000
 const ATTEMPTS_PER_WINDOW = 20
@@ -39,6 +41,25 @@ export async function POST(request: Request) {
     if (count >= ATTEMPTS_PER_WINDOW) return json(429, { error: 'Too many laps sent. Try again in a few minutes.' })
     await query(`insert into lap_attempts (ip_hash) values ($1)`, [ip])
     await query(`delete from lap_attempts where at < now() - interval '1 day'`)
+
+    // The run's ticket: this browser's, for this track, unused, and old enough for the whole run.
+    // Taken in the same statement that checks it, so it can only ever be used once.
+    const taken = await query(
+      `update runs set used_at = now()
+        where id = $1::uuid and device_id = $2::uuid and track_id = $3 and used_at is null
+          and started_at > now() - interval '2 hours'
+          and now() - started_at >= make_interval(secs => $4::double precision / 1000)
+        returning id`,
+      [lap.run, lap.device, lap.track, minRunMs(lap.timeMs)],
+    )
+    if (taken.length === 0) {
+      const [run] = await query<{ waiting: boolean }>(
+        `select (used_at is null and started_at > now() - interval '2 hours') as waiting
+           from runs where id = $1::uuid and device_id = $2::uuid and track_id = $3`,
+        [lap.run, lap.device, lap.track],
+      )
+      return json(403, { error: run?.waiting ? 'Too soon: that run is shorter than its laps' : 'This lap is not from a qualifying run' })
+    }
 
     // Keep the browser's best: a new row, or an update only when this lap is faster.
     const saved = await query(

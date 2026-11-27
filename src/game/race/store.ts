@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { finishRecording, loadGhost, resetRecorder } from './ghostLap'
 import { DEFAULT_CAR, isCarId, type CarId } from '../cars'
+import { QUALY_LAPS } from '../../../api/_rules'
 
 // Two ways to play:
 //   practice — as many laps as you like. First lap from the grid, then flying
@@ -11,8 +12,8 @@ import { DEFAULT_CAR, isCarId, type CarId } from '../cars'
 //              come up. Your best lap is saved as the track record.
 export type Mode = 'practice' | 'qualy'
 
-/** Qualy: timed laps in a run. */
-export const ATTEMPTS = 3
+/** Qualy: timed laps in a run. The leaderboard's rules count on the same number. */
+export const ATTEMPTS = QUALY_LAPS
 export const COUNTDOWN_SECONDS = 3
 // Bump this when the track's layout or the driving physics change, so old
 // records don't carry over.

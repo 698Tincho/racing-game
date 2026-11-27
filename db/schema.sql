@@ -31,3 +31,17 @@ create table if not exists lap_attempts (
 );
 
 create index if not exists lap_attempts_ip_idx on lap_attempts (ip_hash, at);
+
+-- Qualifying runs: the game asks for one when a run starts, and a lap is only taken with an unused
+-- one that's old enough for the whole run (the out-lap and every lap). So a lap can't be made up
+-- and sent straight from the console: it takes as long as driving it. Rows go after a day.
+create table if not exists runs (
+  id          uuid primary key default gen_random_uuid(),
+  track_id    text not null,
+  device_id   uuid not null,
+  ip_hash     text not null,                       -- to cap how many open runs one address holds
+  started_at  timestamptz not null default now(),
+  used_at     timestamptz                          -- set when a lap from this run is taken
+);
+
+create index if not exists runs_ip_idx on runs (ip_hash, started_at);

@@ -17,6 +17,16 @@ export const CAR_IDS = ['race', 'race-future', 'sedan-sports'] as const satisfie
 
 export const BOARD_SIZE = 10
 export const SECTORS = 3
+/** Timed laps in a qualifying run (the game's ATTEMPTS). */
+export const QUALY_LAPS = 3
+
+/**
+ * The least time a whole qualifying run can take, from asking for its ticket to sending its best
+ * lap: the out-lap from the pit box (well over this), then QUALY_LAPS laps, none faster than the
+ * best. Shaved a little, as the game's clock and the server's can drift apart.
+ */
+export const OUT_LAP_MIN_MS = 15_000
+export const minRunMs = (bestLapMs: number) => Math.floor((OUT_LAP_MIN_MS + QUALY_LAPS * bestLapMs) * 0.97)
 const MAX_LAP_MS = 10 * 60_000
 const MIN_SECTOR_MS = 4_000
 /** The three sector times are rounded to the millisecond, so their sum can be a hair off the lap. */
@@ -63,6 +73,8 @@ export const isDeviceId = (value: unknown): value is string => typeof value === 
 export type LapSubmission = {
   track: string
   device: string
+  /** The qualifying run's ticket (POST /api/runs). */
+  run: string
   nickname: string
   carId: string
   timeMs: number
@@ -76,6 +88,7 @@ export function readSubmission(body: unknown): { lap: LapSubmission } | { error:
   const track = typeof b.track === 'string' ? TRACKS[b.track] : undefined
   if (!track) return { error: 'Unknown track' }
   if (!isDeviceId(b.device)) return { error: 'Bad device id' }
+  if (!isDeviceId(b.run)) return { error: 'This lap is not from a qualifying run' }
   if (typeof b.nickname !== 'string') return { error: 'Nickname missing' }
   const nickname = tidyNickname(b.nickname)
   const problem = nicknameProblem(nickname)
@@ -91,7 +104,7 @@ export function readSubmission(body: unknown): { lap: LapSubmission } | { error:
   const sum = (sectors as number[]).reduce((a, s) => a + s, 0)
   if (Math.abs(sum - timeMs) > SECTOR_SLACK_MS) return { error: "Sector times don't add up to the lap" }
 
-  return { lap: { track: b.track as string, device: b.device, nickname, carId: b.carId, timeMs, sectorsMs: sectors as number[] } }
+  return { lap: { track: b.track as string, device: b.device, run: b.run, nickname, carId: b.carId, timeMs, sectorsMs: sectors as number[] } }
 }
 
 /** One line of the board, as the API sends it. */

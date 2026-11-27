@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { bestOf, formatDelta, formatTime, useGame } from '../game/race/store'
+import { TRACK_ID, bestOf, formatDelta, formatTime, useGame } from '../game/race/store'
 import { playUiSound } from '../game/audio/sound'
 import { CARS } from '../game/cars'
 import { MainMenu, nextCar } from './MainMenu'
@@ -50,6 +50,11 @@ export function Screens() {
       if (e.code === 'KeyG') useGame.getState().toggleGhost()
     }
     window.addEventListener('keydown', onKey)
+    // A qualifying run starting (from the menu, or Try again): get its leaderboard ticket.
+    const stopRuns = useGame.subscribe((now, before) => {
+      const starting = now.mode === 'qualy' && now.phase === 'outlap' && now.attempts.length === 0
+      if (starting && (before.phase !== 'outlap' || before.gridId !== now.gridId)) void useBoard.getState().startRun(TRACK_ID)
+    })
     // Small sounds for picking a car, starting a race and opening the track view.
     const stopSounds = useGame.subscribe((now, before) => {
       if (now.carId !== before.carId) playUiSound('rotate')
@@ -62,6 +67,7 @@ export function Screens() {
     })
     return () => {
       window.removeEventListener('keydown', onKey)
+      stopRuns()
       stopSounds()
     }
   }, [])
@@ -119,12 +125,12 @@ function Results() {
           <p className="results-verdict">
             {isRecord ? (
               <>
-                <span className="tag tag-gold">New record</span>
+                <span className="tag tag-good">New best</span>
                 {gap === null ? (
-                  <span>Your first record on this track.</span>
+                  <span>Your first time on this track, on this browser.</span>
                 ) : (
                   <span>
-                    <strong>{formatDelta(gap)}</strong> under your old record of {formatTime(previousBest)}
+                    <strong>{formatDelta(gap)}</strong> under your best on this browser, {formatTime(previousBest)}
                   </span>
                 )}
               </>
@@ -132,7 +138,7 @@ function Results() {
               <>
                 <span className="tag tag-bad">{formatDelta(gap)}</span>
                 <span>
-                  off your record of <strong>{formatTime(previousBest)}</strong>
+                  off your best on this browser, <strong>{formatTime(previousBest)}</strong>
                 </span>
               </>
             ) : null}

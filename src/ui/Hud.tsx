@@ -134,7 +134,7 @@ export function Hud() {
             <dd>{formatTime(best)}</dd>
           </div>
           <div>
-            <dt>Record</dt>
+            <dt>Browser</dt>
             <dd>{formatTime(personalBest)}</dd>
           </div>
         </dl>
