@@ -10,7 +10,10 @@ import type { CarId } from '../src/game/cars'
  * comfortably under the best real ones, so only made-up times are turned away.
  */
 export const TRACKS: Record<string, { name: string; minLapMs: number }> = {
+  // About 54% of a steady bot lap (46.7 s, 54.6 s and 43.2 s): well under any real one.
   'lider-7': { name: 'Circuit 01', minLapMs: 25_000 },
+  'forest-1': { name: 'Circuit 02', minLapMs: 29_000 },
+  'city-1': { name: 'Circuit 03', minLapMs: 23_000 },
 }
 
 export const CAR_IDS = ['race', 'race-future', 'sedan-sports'] as const satisfies readonly CarId[]

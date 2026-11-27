@@ -52,7 +52,7 @@ const straights = (n: number): PieceId[] => Array(n).fill('S')
 /**
  * Circuit 02, the mountain forest: long and flowing, almost all large
  * corners, out into the woods west of the paddock and back. 948 m, 16
- * corners. Being built: only in development until its venue is done.
+ * corners.
  */
 const TRACK_2: PieceId[] = [
   ...HOME_START, // the same start as Circuit 01: main straight, turn 1, the top straight
@@ -73,7 +73,7 @@ const TRACK_2: PieceId[] = [
 /**
  * Circuit 03, the street circuit: tight and technical round the city blocks
  * west of the paddock, nearly all slow right-angle corners, with walls right
- * along the edge. 637 m, 16 corners. Being built: only in development.
+ * along the edge. 637 m, 16 corners.
  */
 const TRACK_3: PieceId[] = [
   ...HOME_START, // the same start: main straight, turn 1, the top straight
@@ -101,12 +101,8 @@ export type Circuit = {
 
 export const CIRCUITS: Circuit[] = [
   { id: 'lider-7', name: 'Circuit 01', layout: TRACK_1, venue: 'park' },
-  ...(import.meta.env.DEV
-    ? [
-        { id: 'forest-1', name: 'Circuit 02', layout: TRACK_2, venue: 'forest' as const },
-        { id: 'city-1', name: 'Circuit 03', layout: TRACK_3, venue: 'city' as const, walls: true },
-      ]
-    : []),
+  { id: 'forest-1', name: 'Circuit 02', layout: TRACK_2, venue: 'forest' },
+  { id: 'city-1', name: 'Circuit 03', layout: TRACK_3, venue: 'city', walls: true },
 ]
 
 export const DEFAULT_CIRCUIT = CIRCUITS[0].id
